@@ -13,6 +13,9 @@ import (
 	_ "embed"
 )
 
+// 42 is 2*3*7 => fits 2, 3, 6, or 7 columns without ragged items
+const kPerPage = 42
+
 //go:embed frontend/index.html
 var indexHTML []byte
 
@@ -77,7 +80,7 @@ func handleAPIList(ctx *handlerCtx, w http.ResponseWriter, r *http.Request) {
 		sortBy = "mtime"
 	}
 
-	items, total, err := ctx.store.ListManga(page, 20, sortBy)
+	items, total, err := ctx.store.ListManga(page, kPerPage, sortBy)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -89,7 +92,7 @@ func handleAPIList(ctx *handlerCtx, w http.ResponseWriter, r *http.Request) {
 		"manga":    items,
 		"total":    total,
 		"page":     page,
-		"per_page": 20,
+		"per_page": kPerPage,
 	})
 }
 
@@ -125,7 +128,7 @@ func handleAPISearch(ctx *handlerCtx, w http.ResponseWriter, r *http.Request) {
 	}
 	slog.Debug("search", "q", q, "fts", buildFTSQuery(q))
 
-	items, total, err := ctx.store.Search(q, page, 20, sortBy)
+	items, total, err := ctx.store.Search(q, page, kPerPage, sortBy)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -137,7 +140,7 @@ func handleAPISearch(ctx *handlerCtx, w http.ResponseWriter, r *http.Request) {
 		"manga":    items,
 		"total":    total,
 		"page":     page,
-		"per_page": 20,
+		"per_page": 42,
 	})
 }
 

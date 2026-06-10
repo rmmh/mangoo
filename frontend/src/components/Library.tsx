@@ -62,7 +62,7 @@ export function Header() {
 }
 
 export function goRandom(q: string) {
-  fetchRandom(q).then((r) => navigate(`/g/${r.mhash}`)).catch(() => {});
+  fetchRandom(q).then((r) => navigate(`/g/${r.mhash}`)).catch(() => { });
 }
 
 export function CardGrid({ items }: { items: MangaListItem[] }) {
@@ -83,9 +83,9 @@ export function Pagination({ page, total, perPage, onPage }: { page: number; tot
   if (totalPages <= 1) return null;
   return (
     <div class="pagination">
-      <button class="btn btn-secondary" disabled={page <= 1} onClick={() => onPage(page - 1)}>← Prev</button>
+      <button class="btn btn-secondary" style={{ visibility: page > 1 ? "visible" : "hidden" }} onClick={() => onPage(page - 1)}>← Prev</button>
       <span>Page {page} / {totalPages}</span>
-      <button class="btn btn-secondary" disabled={page >= totalPages} onClick={() => onPage(page + 1)}>Next →</button>
+      <button class="btn btn-secondary" style={{ visibility: page < totalPages ? "visible" : "hidden" }} onClick={() => onPage(page + 1)}>Next →</button>
     </div>
   );
 }
