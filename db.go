@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"regexp"
 	"slices"
 	"strings"
@@ -109,6 +110,11 @@ type UpsertRecord struct {
 	Mtime, Size                      int64
 }
 
+type ExternalMetadataUpdate struct {
+	AbsPath string
+	Tags    []Tag
+}
+
 func (s *Store) UpsertBatch(records []UpsertRecord) error {
 	if len(records) == 0 {
 		return nil
@@ -141,6 +147,62 @@ func (s *Store) UpsertBatch(records []UpsertRecord) error {
 		if _, err = tx.Exec(`INSERT INTO search(mhash,title,artist,category,character,group_col,language,parody,tag,tags)
 			VALUES(?,?,?,?,?,?,?,?,?,?)`,
 			r.Mhash, fts.title, fts.artist, fts.category, fts.character,
+			fts.group, fts.language, fts.parody, fts.tag, fts.tags,
+		); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
+func (s *Store) ApplyExternalMetadata(updates []ExternalMetadataUpdate) error {
+	if len(updates) == 0 {
+		return nil
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	for _, u := range updates {
+		var mhash, title, existingMeta string
+		err := tx.QueryRow(
+			`SELECT f.mhash, m.title, m.metadata FROM file f JOIN manga m ON m.mhash=f.mhash WHERE f.path=?`,
+			u.AbsPath,
+		).Scan(&mhash, &title, &existingMeta)
+		if err == sql.ErrNoRows {
+			slog.Warn("file_metadata.json: path not in library", "path", u.AbsPath)
+			continue
+		}
+		if err != nil {
+			return err
+		}
+
+		var existing metadataJSON
+		_ = json.Unmarshal([]byte(existingMeta), &existing)
+		newMetaJSON, err := buildMetadataJSON(existing.PageCount, u.Tags)
+		if err != nil {
+			return err
+		}
+		if newMetaJSON == existingMeta {
+			slog.Debug("ext meta noop", "path", u.AbsPath)
+			continue
+		}
+		slog.Debug("ext meta updated", "path", u.AbsPath, "mhash", mhash)
+
+		if _, err = tx.Exec(`UPDATE manga SET metadata=? WHERE mhash=?`, newMetaJSON, mhash); err != nil {
+			return err
+		}
+		if _, err = tx.Exec(`DELETE FROM search WHERE mhash=?`, mhash); err != nil {
+			return err
+		}
+		var fts ftsFields
+		fts.fromMetadataJSON(title, newMetaJSON)
+		if _, err = tx.Exec(
+			`INSERT INTO search(mhash,title,artist,category,character,group_col,language,parody,tag,tags) VALUES(?,?,?,?,?,?,?,?,?,?)`,
+			mhash, fts.title, fts.artist, fts.category, fts.character,
 			fts.group, fts.language, fts.parody, fts.tag, fts.tags,
 		); err != nil {
 			return err
