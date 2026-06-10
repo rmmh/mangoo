@@ -19,8 +19,14 @@ const kPerPage = 42
 //go:embed frontend/index.html
 var indexHTML []byte
 
+type server struct {
+	store       *Store
+	cache       *zipCache
+	thumbnailer bool
+}
+
 func runServer(cfg *Config, store *Store, rescanCh chan<- struct{}) {
-	ctx := &handlerCtx{store: store, cache: newZipCache(), thumbnailer: cfg.Thumbnailer}
+	s := &server{store: store, cache: newZipCache(), thumbnailer: cfg.Thumbnailer}
 	mux := http.NewServeMux()
 
 	// static assets (embedded frontend/dist/)
@@ -32,11 +38,11 @@ func runServer(cfg *Config, store *Store, rescanCh chan<- struct{}) {
 	}
 
 	// API
-	mux.HandleFunc("GET /api/list", makeHandler(ctx, handleAPIList))
-	mux.HandleFunc("GET /api/manga/{mhash}", makeHandler(ctx, handleAPIManga))
-	mux.HandleFunc("GET /api/similar/{mhash}", makeHandler(ctx, handleAPISimilar))
-	mux.HandleFunc("GET /api/search", makeHandler(ctx, handleAPISearch))
-	mux.HandleFunc("GET /api/random", makeHandler(ctx, handleAPIRandom))
+	mux.HandleFunc("GET /api/list", s.handleAPIList)
+	mux.HandleFunc("GET /api/manga/{mhash}", s.handleAPIManga)
+	mux.HandleFunc("GET /api/similar/{mhash}", s.handleAPISimilar)
+	mux.HandleFunc("GET /api/search", s.handleAPISearch)
+	mux.HandleFunc("GET /api/random", s.handleAPIRandom)
 	mux.HandleFunc("POST /api/rescan", func(w http.ResponseWriter, r *http.Request) {
 		select {
 		case rescanCh <- struct{}{}:
@@ -44,8 +50,8 @@ func runServer(cfg *Config, store *Store, rescanCh chan<- struct{}) {
 		}
 		writeJSON(w, map[string]string{"status": "queued"})
 	})
-	mux.HandleFunc("GET /thumb/{mhash}", makeHandler(ctx, handleThumb))
-	mux.HandleFunc("GET /g/{mhash}/img/{n}", makeHandler(ctx, handleImage))
+	mux.HandleFunc("GET /thumb/{mhash}", s.handleThumb)
+	mux.HandleFunc("GET /g/{mhash}/img/{n}", s.handleImage)
 
 	// SPA catch-all
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -61,26 +67,14 @@ func runServer(cfg *Config, store *Store, rescanCh chan<- struct{}) {
 	}
 }
 
-type handlerCtx struct {
-	store       *Store
-	cache       *zipCache
-	thumbnailer bool
-}
-
-func makeHandler(ctx *handlerCtx, fn func(*handlerCtx, http.ResponseWriter, *http.Request)) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		fn(ctx, w, r)
-	}
-}
-
-func handleAPIList(ctx *handlerCtx, w http.ResponseWriter, r *http.Request) {
+func (s *server) handleAPIList(w http.ResponseWriter, r *http.Request) {
 	page := queryInt(r, "page", 1)
 	sortBy := queryString(r, "sort", "mtime")
 	if sortBy != "title" {
 		sortBy = "mtime"
 	}
 
-	items, total, err := ctx.store.ListManga(page, kPerPage, sortBy)
+	items, total, err := s.store.ListManga(page, kPerPage, sortBy)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -96,9 +90,9 @@ func handleAPIList(ctx *handlerCtx, w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func handleAPIManga(ctx *handlerCtx, w http.ResponseWriter, r *http.Request) {
+func (s *server) handleAPIManga(w http.ResponseWriter, r *http.Request) {
 	mhash := r.PathValue("mhash")
-	d, err := ctx.store.GetManga(mhash)
+	d, err := s.store.GetManga(mhash)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "not found")
 		return
@@ -106,9 +100,9 @@ func handleAPIManga(ctx *handlerCtx, w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, d)
 }
 
-func handleAPISimilar(ctx *handlerCtx, w http.ResponseWriter, r *http.Request) {
+func (s *server) handleAPISimilar(w http.ResponseWriter, r *http.Request) {
 	mhash := r.PathValue("mhash")
-	items, err := ctx.store.SimilarManga(mhash, 20)
+	items, err := s.store.SimilarManga(mhash, 20)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -119,7 +113,7 @@ func handleAPISimilar(ctx *handlerCtx, w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, items)
 }
 
-func handleAPISearch(ctx *handlerCtx, w http.ResponseWriter, r *http.Request) {
+func (s *server) handleAPISearch(w http.ResponseWriter, r *http.Request) {
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	page := queryInt(r, "page", 1)
 	sortBy := queryString(r, "sort", "mtime")
@@ -128,7 +122,7 @@ func handleAPISearch(ctx *handlerCtx, w http.ResponseWriter, r *http.Request) {
 	}
 	slog.Debug("search", "q", q, "fts", buildFTSQuery(q))
 
-	items, total, err := ctx.store.Search(q, page, kPerPage, sortBy)
+	items, total, err := s.store.Search(q, page, kPerPage, sortBy)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -144,9 +138,9 @@ func handleAPISearch(ctx *handlerCtx, w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func handleAPIRandom(ctx *handlerCtx, w http.ResponseWriter, r *http.Request) {
+func (s *server) handleAPIRandom(w http.ResponseWriter, r *http.Request) {
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
-	mhash, err := ctx.store.RandomManga(q)
+	mhash, err := s.store.RandomManga(q)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "no results")
 		return
@@ -154,11 +148,11 @@ func handleAPIRandom(ctx *handlerCtx, w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]string{"mhash": mhash})
 }
 
-func handleThumb(ctx *handlerCtx, w http.ResponseWriter, r *http.Request) {
+func (s *server) handleThumb(w http.ResponseWriter, r *http.Request) {
 	mhash := r.PathValue("mhash")
-	data, err := ctx.store.GetThumbnail(mhash)
+	data, err := s.store.GetThumbnail(mhash)
 	if err != nil {
-		path, perr := ctx.store.GetFilePathForMhash(mhash)
+		path, perr := s.store.GetFilePathForMhash(mhash)
 		if perr != nil {
 			http.Error(w, "not found", http.StatusNotFound)
 			return
@@ -168,8 +162,8 @@ func handleThumb(ctx *handlerCtx, w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "not found", http.StatusNotFound)
 			return
 		}
-		if ctx.thumbnailer {
-			_ = ctx.store.InsertThumbnails([]ThumbnailRow{{Mhash: mhash, Data: data}})
+		if s.thumbnailer {
+			_ = s.store.InsertThumbnails([]ThumbnailRow{{Mhash: mhash, Data: data}})
 		}
 	}
 	w.Header().Set("Content-Type", "image/webp")
@@ -178,7 +172,7 @@ func handleThumb(ctx *handlerCtx, w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
-func handleImage(ctx *handlerCtx, w http.ResponseWriter, r *http.Request) {
+func (s *server) handleImage(w http.ResponseWriter, r *http.Request) {
 	mhash := r.PathValue("mhash")
 	nStr := r.PathValue("n")
 	n, err := strconv.Atoi(nStr)
@@ -188,19 +182,19 @@ func handleImage(ctx *handlerCtx, w http.ResponseWriter, r *http.Request) {
 	}
 
 	var maxW, maxH int
-	if s := r.URL.Query().Get("w"); s != "" {
-		maxW, _ = strconv.Atoi(s)
+	if sv := r.URL.Query().Get("w"); sv != "" {
+		maxW, _ = strconv.Atoi(sv)
 	}
-	if s := r.URL.Query().Get("h"); s != "" {
-		maxH, _ = strconv.Atoi(s)
+	if sv := r.URL.Query().Get("h"); sv != "" {
+		maxH, _ = strconv.Atoi(sv)
 	}
 
-	path, err := ctx.store.GetFilePathForMhash(mhash)
+	path, err := s.store.GetFilePathForMhash(mhash)
 	if err != nil {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
-	ctx.cache.serveImage(w, mhash, path, n, maxW, maxH)
+	s.cache.serveImage(w, mhash, path, n, maxW, maxH)
 }
 
 // --- middleware ---
