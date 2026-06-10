@@ -22,11 +22,12 @@ var indexHTML []byte
 type server struct {
 	store       *Store
 	cache       *zipCache
+	rescanCh    chan<- struct{}
 	thumbnailer bool
 }
 
 func runServer(cfg *Config, store *Store, rescanCh chan<- struct{}) {
-	s := &server{store: store, cache: newZipCache(), thumbnailer: cfg.Thumbnailer}
+	s := &server{store: store, cache: newZipCache(), rescanCh: rescanCh, thumbnailer: cfg.Thumbnailer}
 	mux := http.NewServeMux()
 
 	// static assets (embedded frontend/dist/)
@@ -43,22 +44,10 @@ func runServer(cfg *Config, store *Store, rescanCh chan<- struct{}) {
 	mux.HandleFunc("GET /api/similar/{mhash}", s.handleAPISimilar)
 	mux.HandleFunc("GET /api/search", s.handleAPISearch)
 	mux.HandleFunc("GET /api/random", s.handleAPIRandom)
-	mux.HandleFunc("POST /api/rescan", func(w http.ResponseWriter, r *http.Request) {
-		select {
-		case rescanCh <- struct{}{}:
-		default:
-		}
-		writeJSON(w, map[string]string{"status": "queued"})
-	})
+	mux.HandleFunc("POST /api/rescan", s.handleAPIRescan)
 	mux.HandleFunc("GET /thumb/{mhash}", s.handleThumb)
 	mux.HandleFunc("GET /g/{mhash}/img/{n}", s.handleImage)
-
-	// SPA catch-all
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Header().Set("Cache-Control", "no-cache")
-		w.Write(indexHTML)
-	})
+	mux.HandleFunc("/", s.handleSPA)
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
 	slog.Info("server listening", "addr", addr)
@@ -134,8 +123,16 @@ func (s *server) handleAPISearch(w http.ResponseWriter, r *http.Request) {
 		"manga":    items,
 		"total":    total,
 		"page":     page,
-		"per_page": 42,
+		"per_page": kPerPage,
 	})
+}
+
+func (s *server) handleAPIRescan(w http.ResponseWriter, r *http.Request) {
+	select {
+	case s.rescanCh <- struct{}{}:
+	default:
+	}
+	writeJSON(w, map[string]string{"status": "queued"})
 }
 
 func (s *server) handleAPIRandom(w http.ResponseWriter, r *http.Request) {
@@ -146,6 +143,12 @@ func (s *server) handleAPIRandom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, map[string]string{"mhash": mhash})
+}
+
+func (s *server) handleSPA(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Write(indexHTML)
 }
 
 func (s *server) handleThumb(w http.ResponseWriter, r *http.Request) {
