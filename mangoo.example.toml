@@ -1,0 +1,5 @@
+port = 8080
+db_path = "mangoo.db"
+libraries = [
+  "/path/to/manga",
+]

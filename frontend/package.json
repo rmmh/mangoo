@@ -1,0 +1,17 @@
+{
+  "name": "mangoo-frontend",
+  "private": true,
+  "scripts": {
+    "build": "esbuild --bundle --jsx=automatic --jsx-import-source=preact --loader:.tsx=tsx --loader:.ts=ts --target=es2020 --minify src/main.tsx --outfile=dist/app.js"
+  },
+  "dependencies": {
+    "@preact/signals": "^2.9.1",
+    "preact": "^10.25.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true
+  }
+}

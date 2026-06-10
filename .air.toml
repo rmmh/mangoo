@@ -1,0 +1,35 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "make esbuild && CGO_ENABLED=1 go build -o ./mangoo ."
+  bin = "./mangoo"
+  args_bin = []
+  delay = 1000
+  include_ext = ["go", "html", "ts", "tsx", "css"]
+  exclude_dir = ["tmp", "vendor", "frontend/node_modules", "frontend/dist"]
+  exclude_regex = ["_test.go"]
+  exclude_unchanged = false
+  kill_delay = "500ms"
+  send_interrupt = true
+  stop_on_error = true
+  log = "build-errors.log"
+
+[color]
+  app = ""
+  build = "yellow"
+  main = "magenta"
+  runner = "green"
+  watcher = "cyan"
+
+[log]
+  main_only = false
+  silent = false
+  time = false
+
+[misc]
+  clean_on_exit = true
+
+[screen]
+  clear_on_rebuild = false
+  keep_scroll = true

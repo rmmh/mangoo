@@ -1,0 +1,5 @@
+mangoo
+mangoo.toml
+mangoo.db*
+frontend/node_modules/
+frontend/dist/*
