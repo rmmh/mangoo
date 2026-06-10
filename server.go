@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	_ "embed"
@@ -19,15 +20,21 @@ const kPerPage = 42
 //go:embed frontend/index.html
 var indexHTML []byte
 
+type Stats struct {
+	FilesScanned atomic.Int64
+	ThumbBacklog atomic.Int64
+}
+
 type server struct {
 	store       *Store
 	cache       *zipCache
 	rescanCh    chan<- struct{}
 	thumbnailer bool
+	stats       *Stats
 }
 
-func runServer(cfg *Config, store *Store, rescanCh chan<- struct{}) {
-	s := &server{store: store, cache: newZipCache(), rescanCh: rescanCh, thumbnailer: cfg.Thumbnailer}
+func runServer(cfg *Config, store *Store, rescanCh chan<- struct{}, stats *Stats) {
+	s := &server{store: store, cache: newZipCache(), rescanCh: rescanCh, thumbnailer: cfg.Thumbnailer, stats: stats}
 	mux := http.NewServeMux()
 
 	// static assets (embedded frontend/dist/)
@@ -72,10 +79,12 @@ func (s *server) handleAPIList(w http.ResponseWriter, r *http.Request) {
 		items = []MangaListItem{}
 	}
 	writeJSON(w, map[string]any{
-		"manga":    items,
-		"total":    total,
-		"page":     page,
-		"per_page": kPerPage,
+		"manga":         items,
+		"total":         total,
+		"page":          page,
+		"per_page":      kPerPage,
+		"files_scanned": s.stats.FilesScanned.Load(),
+		"thumb_backlog": s.stats.ThumbBacklog.Load(),
 	})
 }
 

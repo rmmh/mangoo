@@ -25,6 +25,8 @@ export interface ListResponse {
   total: number;
   page: number;
   per_page: number;
+  files_scanned: number;
+  thumb_backlog: number;
 }
 
 export async function fetchList(page: number, sort: string): Promise<ListResponse> {

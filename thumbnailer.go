@@ -20,15 +20,15 @@ import (
 	xdraw "golang.org/x/image/draw"
 )
 
-func runThumbnailer(store *Store, ch <-chan struct{}) {
+func runThumbnailer(store *Store, ch <-chan struct{}, stats *Stats) {
 	for range ch {
-		if err := processThumbnails(store); err != nil {
+		if err := processThumbnails(store, stats); err != nil {
 			slog.Error("thumbnailer failed", "err", err)
 		}
 	}
 }
 
-func processThumbnails(store *Store) error {
+func processThumbnails(store *Store, stats *Stats) error {
 	mhashes, err := store.MhashesWithoutThumbnails()
 	if err != nil {
 		return err
@@ -38,6 +38,7 @@ func processThumbnails(store *Store) error {
 	}
 	slog.Info("thumbnailer starting", "count", len(mhashes))
 	start := time.Now()
+	stats.ThumbBacklog.Store(int64(len(mhashes)))
 
 	var done int
 	for chunk := range slices.Chunk(mhashes, 16) {
@@ -63,6 +64,7 @@ func processThumbnails(store *Store) error {
 			}
 		}
 		done += len(chunk)
+		stats.ThumbBacklog.Store(int64(len(mhashes) - done))
 		slog.Debug("thumbnailer progress", "done", done, "total", len(mhashes))
 		if done%100 == 0 {
 			slog.Info("thumbnailer progress", "done", done, "total", len(mhashes))

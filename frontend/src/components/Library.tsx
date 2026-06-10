@@ -143,6 +143,13 @@ export function Library({ page, sort }: Props) {
             <Pagination page={page} total={data.total} perPage={data.per_page} onPage={setPage} />
             <div class="rescan-row">
               <RescanButton />
+              {(data.files_scanned > 0 || data.thumb_backlog > 0) && (
+                <div class="scan-stats">
+                  {data.files_scanned > 0 && `Scanned ${data.files_scanned.toLocaleString()} files`}
+                  {data.files_scanned > 0 && data.thumb_backlog > 0 && ", "}
+                  {data.thumb_backlog > 0 && `thumbnailer backlog is ${data.thumb_backlog.toLocaleString()} files`}
+                </div>
+              )}
             </div>
           </>
         )}

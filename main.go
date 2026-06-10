@@ -39,13 +39,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	stats := &Stats{}
 	thumbCh := make(chan struct{}, 2)
 	rescanCh := make(chan struct{}, 1)
 	if cfg.Thumbnailer {
-		go runThumbnailer(store, thumbCh)
+		go runThumbnailer(store, thumbCh, stats)
 	}
-	go runScanner(store, cfg.Libraries, thumbCh, rescanCh)
+	go runScanner(store, cfg.Libraries, thumbCh, rescanCh, stats)
 
-	runServer(cfg, store, rescanCh)
+	runServer(cfg, store, rescanCh, stats)
 }
 

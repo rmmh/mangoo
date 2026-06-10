@@ -19,8 +19,8 @@ func logSlow(label, path string, start time.Time) {
 	}
 }
 
-func runScanner(store *Store, libraries []string, thumbCh chan<- struct{}, rescanCh <-chan struct{}) {
-	if err := scan(store, libraries, thumbCh); err != nil {
+func runScanner(store *Store, libraries []string, thumbCh chan<- struct{}, rescanCh <-chan struct{}, stats *Stats) {
+	if err := scan(store, libraries, thumbCh, stats); err != nil {
 		slog.Error("scan failed", "err", err)
 	}
 	ticker := time.NewTicker(4 * time.Hour)
@@ -30,13 +30,13 @@ func runScanner(store *Store, libraries []string, thumbCh chan<- struct{}, resca
 		case <-ticker.C:
 		case <-rescanCh:
 		}
-		if err := scan(store, libraries, thumbCh); err != nil {
+		if err := scan(store, libraries, thumbCh, stats); err != nil {
 			slog.Error("scan failed", "err", err)
 		}
 	}
 }
 
-func scan(store *Store, libraries []string, thumbCh chan<- struct{}) error {
+func scan(store *Store, libraries []string, thumbCh chan<- struct{}, stats *Stats) error {
 	slog.Info("scan started")
 	start := time.Now()
 
@@ -96,6 +96,7 @@ func scan(store *Store, libraries []string, thumbCh chan<- struct{}) error {
 			size := info.Size()
 
 			delete(known, path)
+			stats.FilesScanned.Add(1)
 
 			existMtime, existSize, found, err := store.GetFileMtimeSize(path)
 			if err != nil {
@@ -190,6 +191,7 @@ func scan(store *Store, libraries []string, thumbCh chan<- struct{}) error {
 		return err
 	}
 
+	stats.FilesScanned.Store(0)
 	slog.Info("scan complete",
 		"new", newCount,
 		"updated", updatedCount,
