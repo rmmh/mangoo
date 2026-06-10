@@ -9,15 +9,19 @@ import (
 )
 
 type Config struct {
-	Port      int      `toml:"port"`
-	DBPath    string   `toml:"db_path"`
-	Libraries []string `toml:"libraries"`
+	Port        int      `toml:"port"`
+	DBPath      string   `toml:"db_path"`
+	Thumbnailer bool     `toml:"thumbnailer"`
+	Libraries   []string `toml:"libraries"`
 }
+
+var ErrNoConfig = errors.New("no config file found")
 
 func loadConfig(path string) (*Config, error) {
 	cfg := &Config{
-		Port:   8080,
-		DBPath: "mangoo.db",
+		Port:        8080,
+		DBPath:      "mangoo.db",
+		Thumbnailer: true,
 	}
 
 	if path == "" {
@@ -39,7 +43,7 @@ func loadConfig(path string) (*Config, error) {
 	}
 
 	if path == "" {
-		return nil, errors.New("no config file found; create mangoo.toml or pass --config")
+		return nil, ErrNoConfig
 	}
 
 	if _, err := toml.DecodeFile(path, cfg); err != nil {

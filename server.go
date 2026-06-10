@@ -20,7 +20,7 @@ const kPerPage = 42
 var indexHTML []byte
 
 func runServer(cfg *Config, store *Store, rescanCh chan<- struct{}) {
-	cache := newZipCache()
+	ctx := &handlerCtx{store: store, cache: newZipCache(), thumbnailer: cfg.Thumbnailer}
 	mux := http.NewServeMux()
 
 	// static assets (embedded frontend/dist/)
@@ -32,11 +32,11 @@ func runServer(cfg *Config, store *Store, rescanCh chan<- struct{}) {
 	}
 
 	// API
-	mux.HandleFunc("GET /api/list", makeHandler(store, cache, handleAPIList))
-	mux.HandleFunc("GET /api/manga/{mhash}", makeHandler(store, cache, handleAPIManga))
-	mux.HandleFunc("GET /api/similar/{mhash}", makeHandler(store, cache, handleAPISimilar))
-	mux.HandleFunc("GET /api/search", makeHandler(store, cache, handleAPISearch))
-	mux.HandleFunc("GET /api/random", makeHandler(store, cache, handleAPIRandom))
+	mux.HandleFunc("GET /api/list", makeHandler(ctx, handleAPIList))
+	mux.HandleFunc("GET /api/manga/{mhash}", makeHandler(ctx, handleAPIManga))
+	mux.HandleFunc("GET /api/similar/{mhash}", makeHandler(ctx, handleAPISimilar))
+	mux.HandleFunc("GET /api/search", makeHandler(ctx, handleAPISearch))
+	mux.HandleFunc("GET /api/random", makeHandler(ctx, handleAPIRandom))
 	mux.HandleFunc("POST /api/rescan", func(w http.ResponseWriter, r *http.Request) {
 		select {
 		case rescanCh <- struct{}{}:
@@ -44,8 +44,8 @@ func runServer(cfg *Config, store *Store, rescanCh chan<- struct{}) {
 		}
 		writeJSON(w, map[string]string{"status": "queued"})
 	})
-	mux.HandleFunc("GET /thumb/{mhash}", makeHandler(store, cache, handleThumb))
-	mux.HandleFunc("GET /g/{mhash}/img/{n}", makeHandler(store, cache, handleImage))
+	mux.HandleFunc("GET /thumb/{mhash}", makeHandler(ctx, handleThumb))
+	mux.HandleFunc("GET /g/{mhash}/img/{n}", makeHandler(ctx, handleImage))
 
 	// SPA catch-all
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -62,12 +62,12 @@ func runServer(cfg *Config, store *Store, rescanCh chan<- struct{}) {
 }
 
 type handlerCtx struct {
-	store *Store
-	cache *zipCache
+	store       *Store
+	cache       *zipCache
+	thumbnailer bool
 }
 
-func makeHandler(store *Store, cache *zipCache, fn func(*handlerCtx, http.ResponseWriter, *http.Request)) http.HandlerFunc {
-	ctx := &handlerCtx{store: store, cache: cache}
+func makeHandler(ctx *handlerCtx, fn func(*handlerCtx, http.ResponseWriter, *http.Request)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		fn(ctx, w, r)
 	}
@@ -158,8 +158,19 @@ func handleThumb(ctx *handlerCtx, w http.ResponseWriter, r *http.Request) {
 	mhash := r.PathValue("mhash")
 	data, err := ctx.store.GetThumbnail(mhash)
 	if err != nil {
-		http.Error(w, "not found", http.StatusNotFound)
-		return
+		path, perr := ctx.store.GetFilePathForMhash(mhash)
+		if perr != nil {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		data, err = makeThumbnail(path)
+		if err != nil || data == nil {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		if ctx.thumbnailer {
+			_ = ctx.store.InsertThumbnails([]ThumbnailRow{{Mhash: mhash, Data: data}})
+		}
 	}
 	w.Header().Set("Content-Type", "image/webp")
 	w.Header().Set("Content-Length", strconv.Itoa(len(data)))

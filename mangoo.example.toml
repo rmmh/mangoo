@@ -1,5 +1,8 @@
 port = 8080
 db_path = "mangoo.db"
+# Run background thumbnail generation and cache thumbnails in the DB.
+# When false, thumbnails are generated on demand per request but not stored.
+thumbnailer = true
 libraries = [
   "/path/to/manga",
 ]
