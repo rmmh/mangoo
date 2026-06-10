@@ -1,7 +1,7 @@
 import { useState, useEffect } from "preact/hooks";
 import { fetchSearch, ListResponse } from "../api";
 import { navigate, lastSearchQuery } from "./App";
-import { Header, CardGrid, Pagination } from "./Library";
+import { Header, CardGrid, Pagination, RescanRow } from "./Library";
 
 interface Props {
   q: string;
@@ -38,6 +38,7 @@ export function Search({ q, page, sort }: Props) {
             {data.manga.length === 0 && <div class="status">No results.</div>}
             <CardGrid items={data.manga} />
             <Pagination page={page} total={data.total} perPage={data.per_page} onPage={setPage} />
+            <RescanRow files_scanned={data.files_scanned} thumb_backlog={data.thumb_backlog} />
           </>
         )}
       </div>

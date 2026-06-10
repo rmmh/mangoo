@@ -129,10 +129,12 @@ func (s *server) handleAPISearch(w http.ResponseWriter, r *http.Request) {
 		items = []MangaListItem{}
 	}
 	writeJSON(w, map[string]any{
-		"manga":    items,
-		"total":    total,
-		"page":     page,
-		"per_page": kPerPage,
+		"manga":         items,
+		"total":         total,
+		"page":          page,
+		"per_page":      kPerPage,
+		"files_scanned": s.stats.FilesScanned.Load(),
+		"thumb_backlog": s.stats.ThumbBacklog.Load(),
 	})
 }
 
