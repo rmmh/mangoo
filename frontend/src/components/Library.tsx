@@ -1,5 +1,5 @@
 import { useState, useEffect } from "preact/hooks";
-import { fetchList, fetchRandom, MangaListItem, ListResponse } from "../api";
+import { fetchList, fetchRandom, fetchRescan, MangaListItem, ListResponse } from "../api";
 import { navigate, lastSearchQuery } from "./App";
 
 interface Props {
@@ -34,10 +34,12 @@ export function Header({ sort, onSort, onRandom }: { sort: string; onSort: (s: s
     <div class="header">
       <h1 onClick={() => navigate("/")}>Mangoo</h1>
       <SearchBar initialQ={lastSearchQuery.value} />
-      {onRandom && <button class="btn btn-blue" onClick={onRandom}>Random</button>}
-      <div class="sort-toggle">
-        <button class={`btn btn-secondary${sort === "mtime" ? " active" : ""}`} onClick={() => onSort("mtime")}>Newest</button>
-        <button class={`btn btn-secondary${sort === "title" ? " active" : ""}`} onClick={() => onSort("title")}>A–Z</button>
+      <div class="header-actions">
+        {onRandom && <button class="btn btn-blue" onClick={onRandom}>Random</button>}
+        <div class="sort-toggle">
+          <button class={`btn btn-secondary${sort === "mtime" ? " active" : ""}`} onClick={() => onSort("mtime")}>Newest</button>
+          <button class={`btn btn-secondary${sort === "title" ? " active" : ""}`} onClick={() => onSort("title")}>A–Z</button>
+        </div>
       </div>
     </div>
   );
@@ -72,6 +74,27 @@ export function Pagination({ page, total, perPage, onPage }: { page: number; tot
   );
 }
 
+function RescanButton() {
+  const [state, setState] = useState<"idle" | "scanning" | "done">("idle");
+
+  function rescan() {
+    setState("scanning");
+    fetchRescan()
+      .then(() => setState("done"))
+      .catch(() => setState("idle"));
+  }
+
+  return (
+    <button
+      class="btn btn-secondary"
+      onClick={rescan}
+      disabled={state === "scanning"}
+    >
+      {state === "scanning" ? "Scanning…" : state === "done" ? "Scan queued" : "Rescan"}
+    </button>
+  );
+}
+
 export function Library({ page, sort }: Props) {
   const [data, setData] = useState<ListResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -79,7 +102,11 @@ export function Library({ page, sort }: Props) {
   useEffect(() => {
     setData(null);
     setError(null);
-    fetchList(page, sort).then(setData).catch((e) => setError(e.message));
+    fetchList(page, sort).then((d) => {
+      setData(d);
+      const y = history.state?.scrollY;
+      if (y) requestAnimationFrame(() => window.scrollTo(0, y));
+    }).catch((e) => setError(e.message));
   }, [page, sort]);
 
   function setSort(s: string) {
@@ -100,6 +127,9 @@ export function Library({ page, sort }: Props) {
           <>
             <CardGrid items={data.manga} />
             <Pagination page={page} total={data.total} perPage={data.per_page} onPage={setPage} />
+            <div class="rescan-row">
+              <RescanButton />
+            </div>
           </>
         )}
       </div>

@@ -2,8 +2,9 @@ package main
 
 import (
 	"archive/zip"
+	"cmp"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -37,8 +38,8 @@ func filterAndSortImages(files []*zip.File) []*zip.File {
 			images = append(images, f)
 		}
 	}
-	sort.Slice(images, func(i, j int) bool {
-		return images[i].Name < images[j].Name
+	slices.SortFunc(images, func(a, b *zip.File) int {
+		return cmp.Compare(a.Name, b.Name)
 	})
 	return images
 }

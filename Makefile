@@ -3,7 +3,7 @@ ESBUILD_FLAGS := --bundle --jsx=automatic --jsx-import-source=preact \
                  --loader:.tsx=tsx --loader:.ts=ts --target=es2020 \
                  --sourcemap
 
-.PHONY: build frontend-build dev clean deps-check
+.PHONY: build frontend-build clean deps-check
 
 build: frontend-build
 	CGO_ENABLED=1 go build -o mangoo .
@@ -16,11 +16,6 @@ npm-install:
 esbuild:
 	$(ESBUILD) $(ESBUILD_FLAGS) \
 		frontend/src/main.tsx --outfile=frontend/dist/app.js
-
-dev:
-	$(ESBUILD) $(ESBUILD_FLAGS) --sourcemap \
-		frontend/src/main.tsx --outfile=frontend/dist/app.js --watch &
-	CGO_ENABLED=1 go run . --config mangoo.toml
 
 deps-check:
 	@pkg-config --exists libwebp || \

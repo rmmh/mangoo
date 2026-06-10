@@ -1,4 +1,4 @@
-import { useState, useEffect } from "preact/hooks";
+import { useState, useEffect, useLayoutEffect } from "preact/hooks";
 import { fetchManga, fetchSimilar, MangaDetail, MangaListItem, Tag } from "../api";
 import { navigate, lastSearchQuery } from "./App";
 import { Header, CardGrid, goRandom } from "./Library";
@@ -38,6 +38,9 @@ export function Detail({ mhash }: Props) {
   const [manga, setManga] = useState<MangaDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [similar, setSimilar] = useState<MangaListItem[] | null>(null);
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0);
+  }, [mhash]);
 
   useEffect(() => {
     setManga(null);
@@ -66,12 +69,19 @@ export function Detail({ mhash }: Props) {
       <Header sort="mtime" onSort={() => {}} onRandom={() => goRandom(lastSearchQuery.value)} />
       <div class="detail-wrap">
         {error && <div class="status">Error: {error}</div>}
+        <div class="detail-cover" onClick={() => manga && navigate(`/g/${mhash}/1`)}>
+          <img src={`/thumb/${mhash}`} alt="" aria-hidden="true" />
+          <img
+            class="detail-cover-full"
+            src={`/g/${mhash}/img/1`}
+            alt={manga?.title ?? ""}
+            style={{ opacity: 0 }}
+            onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "1"; }}
+          />
+        </div>
         {!manga && !error && <div class="status">Loading…</div>}
         {manga && (
           <>
-            <div class="detail-cover" onClick={() => navigate(`/g/${manga.mhash}/1`)}>
-              <img src={`/g/${manga.mhash}/img/1`} alt={manga.title} />
-            </div>
             <div class="detail-info">
               <h1 class="detail-title">{manga.title}</h1>
               <div class="detail-meta">

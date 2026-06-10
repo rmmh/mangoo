@@ -11,13 +11,25 @@ import (
 	"time"
 )
 
-func runScanner(store *Store, libraries []string, thumbCh chan<- struct{}) {
+const slowThreshold = time.Second
+
+func logSlow(label, path string, start time.Time) {
+	if elapsed := time.Since(start); elapsed > slowThreshold {
+		slog.Info("slow "+label, "path", path, "elapsed", elapsed.Round(time.Millisecond))
+	}
+}
+
+func runScanner(store *Store, libraries []string, thumbCh chan<- struct{}, rescanCh <-chan struct{}) {
 	if err := scan(store, libraries, thumbCh); err != nil {
 		slog.Error("scan failed", "err", err)
 	}
 	ticker := time.NewTicker(4 * time.Hour)
 	defer ticker.Stop()
-	for range ticker.C {
+	for {
+		select {
+		case <-ticker.C:
+		case <-rescanCh:
+		}
 		if err := scan(store, libraries, thumbCh); err != nil {
 			slog.Error("scan failed", "err", err)
 		}
@@ -51,8 +63,6 @@ func scan(store *Store, libraries []string, thumbCh chan<- struct{}) error {
 		}
 		return nil
 	}
-
-	const slowThreshold = time.Second
 
 	for _, lib := range libraries {
 		var curDir string
@@ -108,9 +118,7 @@ func scan(store *Store, libraries []string, thumbCh chan<- struct{}) error {
 				slog.Debug("hash failed", "path", path, "err", err)
 				return nil
 			}
-			if elapsed := time.Since(t); elapsed > slowThreshold {
-				slog.Info("slow hash", "path", path, "elapsed", elapsed.Round(time.Millisecond))
-			}
+			logSlow("hash", path, t)
 
 			t = time.Now()
 			pageCount, fileTags, err := inspectZip(path)
@@ -118,19 +126,14 @@ func scan(store *Store, libraries []string, thumbCh chan<- struct{}) error {
 				slog.Debug("inspect failed", "path", path, "err", err)
 				return nil
 			}
-			if elapsed := time.Since(t); elapsed > slowThreshold {
-				slog.Info("slow zip inspect", "path", path, "elapsed", elapsed.Round(time.Millisecond))
-			}
+			logSlow("zip inspect", path, t)
 
 			title := deriveTitle(path)
 			metaJSON, err := buildMetadataJSON(pageCount, fileTags)
 			if err != nil {
 				return err
 			}
-
-			if elapsed := time.Since(fileStart); elapsed > slowThreshold {
-				slog.Info("slow file", "path", path, "elapsed", elapsed.Round(time.Millisecond))
-			}
+			logSlow("file", path, fileStart)
 
 			batch = append(batch, UpsertRecord{
 				Path: path, Mhash: mhash, Title: title,
@@ -202,10 +205,6 @@ func scan(store *Store, libraries []string, thumbCh chan<- struct{}) error {
 	return nil
 }
 
-type zipMetadata struct {
-	Tags []Tag `json:"tags"`
-}
-
 func inspectZip(path string) (pageCount int, tags []Tag, err error) {
 	r, err := zip.OpenReader(path)
 	if err != nil {
@@ -216,7 +215,6 @@ func inspectZip(path string) (pageCount int, tags []Tag, err error) {
 	images := filterAndSortImages(r.File)
 	pageCount = len(images)
 
-	// look for metadata.json in the zip
 	for _, f := range r.File {
 		if f.FileInfo().IsDir() {
 			continue
@@ -231,7 +229,7 @@ func inspectZip(path string) (pageCount int, tags []Tag, err error) {
 			if err != nil {
 				break
 			}
-			var meta zipMetadata
+			var meta metadataJSON
 			if err := json.Unmarshal(data, &meta); err == nil {
 				tags = meta.Tags
 			}
@@ -249,17 +247,3 @@ func deriveTitle(path string) string {
 	return strings.TrimSpace(base)
 }
 
-func buildMetadataJSON(pageCount int, tags []Tag) (string, error) {
-	m := struct {
-		PageCount int   `json:"page_count"`
-		Tags      []Tag `json:"tags"`
-	}{
-		PageCount: pageCount,
-		Tags:      tags,
-	}
-	if m.Tags == nil {
-		m.Tags = []Tag{}
-	}
-	b, err := json.Marshal(m)
-	return string(b), err
-}

@@ -1,10 +1,13 @@
 *, *::before, *::after { box-sizing: border-box; }
 
+html { overflow-anchor: none; }
+
 body {
   margin: 0;
   font-family: system-ui, sans-serif;
   background: #111;
   color: #eee;
+
 }
 
 a { color: inherit; text-decoration: none; }
@@ -76,6 +79,12 @@ a { color: inherit; text-decoration: none; }
 }
 
 .btn-blue:hover { background: #1d4ed8; }
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
 
 .sort-toggle {
   display: flex;
@@ -156,6 +165,7 @@ a { color: inherit; text-decoration: none; }
 }
 
 .detail-cover {
+  position: relative;
   flex-shrink: 0;
   width: 340px;
   border-radius: 6px;
@@ -168,7 +178,15 @@ a { color: inherit; text-decoration: none; }
 .detail-cover img {
   width: 100%;
   display: block;
-  background: #222;
+}
+
+.detail-cover-full {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
   transition: opacity 0.15s;
 }
 
@@ -238,7 +256,11 @@ a { color: inherit; text-decoration: none; }
 /* ── Reader ── */
 
 .reader {
-  background: #000;
+  background: linear-gradient(
+    to right,
+    #1a2c3a calc(var(--progress, 0) * 100%),
+    #000 calc(var(--progress, 0) * 100%)
+  );
   user-select: none;
   min-height: 100dvh;
 }
@@ -287,7 +309,7 @@ a { color: inherit; text-decoration: none; }
   justify-content: center;
   align-items: center;
   height: 100dvh;
-  background: #000;
+  background: transparent;
 }
 
 .reader-image-wrap > img:not(.reader-prefetch) {
@@ -307,6 +329,8 @@ a { color: inherit; text-decoration: none; }
   bottom: 0;
   width: 50%;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
 }
 
 .reader-zone-left { left: 0; }
@@ -351,6 +375,14 @@ a { color: inherit; text-decoration: none; }
   color: #888;
 }
 
+/* ── Rescan ── */
+
+.rescan-row {
+  display: flex;
+  justify-content: center;
+  padding: 24px 0 8px;
+}
+
 /* ── Loading / error ── */
 
 .status {
@@ -361,6 +393,9 @@ a { color: inherit; text-decoration: none; }
 }
 
 @media (max-width: 600px) {
+  .header { flex-wrap: wrap; }
+  .header .search-form { flex-shrink: 0; }
+  .header-actions { flex-shrink: 0; }
   .detail-wrap { flex-direction: column; }
   .detail-cover { width: 100%; }
 }

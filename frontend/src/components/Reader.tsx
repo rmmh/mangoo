@@ -59,8 +59,10 @@ export function Reader({ mhash, initialPage }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [page, pageCount, picking]);
 
+  const progress = pageCount && pageCount > 1 ? (page - 1) / (pageCount - 1) : 0;
+
   return (
-    <div class="reader">
+    <div class="reader" style={{ '--progress': progress } as any}>
       <div class="reader-header">
         <button class="btn btn-secondary reader-back" onClick={() => navigate(`/g/${mhash}`)}>←</button>
         <span class="reader-title">{manga?.title ?? ""}</span>

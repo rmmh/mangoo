@@ -5,9 +5,12 @@ import { Detail } from "./Detail";
 import { Reader } from "./Reader";
 import { Search } from "./Search";
 
+history.scrollRestoration = "manual";
+
 export const currentPath = signal(location.pathname + location.search);
 
 export function navigate(path: string) {
+  history.replaceState({ scrollY: window.scrollY }, "");
   history.pushState(null, "", path);
   currentPath.value = path;
 }

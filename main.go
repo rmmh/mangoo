@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"log/slog"
 	"os"
@@ -31,13 +30,10 @@ func main() {
 	}
 
 	thumbCh := make(chan struct{}, 2)
-	go runScanner(store, cfg.Libraries, thumbCh)
+	rescanCh := make(chan struct{}, 1)
+	go runScanner(store, cfg.Libraries, thumbCh, rescanCh)
 	go runThumbnailer(store, thumbCh)
 
-	runServer(cfg, store)
+	runServer(cfg, store, rescanCh)
 }
 
-// jsonUnmarshal is a package-level alias so db.go can use it without importing encoding/json directly.
-func jsonUnmarshal(data []byte, v any) error {
-	return json.Unmarshal(data, v)
-}

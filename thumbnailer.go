@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"math"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -38,13 +39,8 @@ func processThumbnails(store *Store) error {
 	slog.Info("thumbnailer starting", "count", len(mhashes))
 	start := time.Now()
 
-	const batchSize = 16
 	var done int
-	for i := 0; i < len(mhashes); i += batchSize {
-		chunk := mhashes[i:]
-		if len(chunk) > batchSize {
-			chunk = chunk[:batchSize]
-		}
+	for chunk := range slices.Chunk(mhashes, 16) {
 		var batch []ThumbnailRow
 		for _, mhash := range chunk {
 			path, err := store.GetFilePathForMhash(mhash)
@@ -89,11 +85,7 @@ func makeThumbnail(zipPath string) ([]byte, error) {
 		return nil, nil
 	}
 
-	limit := 3
-	if len(images) < limit {
-		limit = len(images)
-	}
-	for i := 0; i < limit; i++ {
+	for i := range min(3, len(images)) {
 		data, err := thumbFromZipFile(images[i])
 		if err != nil {
 			slog.Debug("thumb decode failed", "file", images[i].Name, "err", err)

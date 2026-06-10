@@ -2,8 +2,10 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 
 	_ "modernc.org/sqlite"
@@ -149,15 +151,7 @@ func (s *Store) UpsertBatch(records []UpsertRecord) error {
 }
 
 func (s *Store) DeleteFiles(paths []string) error {
-	if len(paths) == 0 {
-		return nil
-	}
-	const chunkSize = 500
-	for i := 0; i < len(paths); i += chunkSize {
-		chunk := paths[i:]
-		if len(chunk) > chunkSize {
-			chunk = chunk[:chunkSize]
-		}
+	for chunk := range slices.Chunk(paths, 500) {
 		placeholders := strings.Repeat("?,", len(chunk))
 		placeholders = placeholders[:len(placeholders)-1]
 		args := make([]any, len(chunk))
@@ -172,41 +166,6 @@ func (s *Store) DeleteFiles(paths []string) error {
 }
 
 // --- manga table ---
-
-func (s *Store) UpsertManga(mhash, title string, mtime int64, metadataJSON string) error {
-	tx, err := s.db.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	_, err = tx.Exec(`
-		INSERT INTO manga(mhash,title,mtime,metadata) VALUES(?,?,?,?)
-		ON CONFLICT(mhash) DO UPDATE SET title=excluded.title, metadata=excluded.metadata`,
-		mhash, title, mtime, metadataJSON,
-	)
-	if err != nil {
-		return err
-	}
-
-	// sync FTS
-	if _, err = tx.Exec(`DELETE FROM search WHERE mhash=?`, mhash); err != nil {
-		return err
-	}
-
-	var fts ftsFields
-	fts.fromMetadataJSON(title, metadataJSON)
-	_, err = tx.Exec(`INSERT INTO search(mhash,title,artist,category,character,group_col,language,parody,tag,tags)
-		VALUES(?,?,?,?,?,?,?,?,?,?)`,
-		mhash, fts.title, fts.artist, fts.category, fts.character,
-		fts.group, fts.language, fts.parody, fts.tag, fts.tags,
-	)
-	if err != nil {
-		return err
-	}
-
-	return tx.Commit()
-}
 
 func (s *Store) PruneOrphanManga() error {
 	_, err := s.db.Exec(`DELETE FROM manga WHERE mhash NOT IN (SELECT mhash FROM file)`)
@@ -507,7 +466,7 @@ func (f *ftsFields) fromMetadataJSON(title, metaJSON string) {
 	f.title = title
 	var m metadataJSON
 	// best-effort parse; zero value on failure
-	_ = jsonUnmarshal([]byte(metaJSON), &m)
+	_ = json.Unmarshal([]byte(metaJSON), &m)
 	for _, t := range m.Tags {
 		name := t.Name + " "
 		f.tags += name
@@ -532,9 +491,18 @@ func (f *ftsFields) fromMetadataJSON(title, metaJSON string) {
 
 func tagsFromMetadataJSON(metaJSON string) []Tag {
 	var m metadataJSON
-	_ = jsonUnmarshal([]byte(metaJSON), &m)
+	_ = json.Unmarshal([]byte(metaJSON), &m)
 	if m.Tags == nil {
 		return []Tag{}
 	}
 	return m.Tags
+}
+
+func buildMetadataJSON(pageCount int, tags []Tag) (string, error) {
+	m := metadataJSON{PageCount: pageCount, Tags: tags}
+	if m.Tags == nil {
+		m.Tags = []Tag{}
+	}
+	b, err := json.Marshal(m)
+	return string(b), err
 }

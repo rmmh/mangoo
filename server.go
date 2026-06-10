@@ -16,7 +16,7 @@ import (
 //go:embed frontend/index.html
 var indexHTML []byte
 
-func runServer(cfg *Config, store *Store) {
+func runServer(cfg *Config, store *Store, rescanCh chan<- struct{}) {
 	cache := newZipCache()
 	mux := http.NewServeMux()
 
@@ -34,6 +34,13 @@ func runServer(cfg *Config, store *Store) {
 	mux.HandleFunc("GET /api/similar/{mhash}", makeHandler(store, cache, handleAPISimilar))
 	mux.HandleFunc("GET /api/search", makeHandler(store, cache, handleAPISearch))
 	mux.HandleFunc("GET /api/random", makeHandler(store, cache, handleAPIRandom))
+	mux.HandleFunc("POST /api/rescan", func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case rescanCh <- struct{}{}:
+		default:
+		}
+		writeJSON(w, map[string]string{"status": "queued"})
+	})
 	mux.HandleFunc("GET /thumb/{mhash}", makeHandler(store, cache, handleThumb))
 	mux.HandleFunc("GET /g/{mhash}/img/{n}", makeHandler(store, cache, handleImage))
 
