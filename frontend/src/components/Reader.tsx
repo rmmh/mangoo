@@ -9,14 +9,22 @@ interface Props {
 
 export function Reader({ mhash, initialPage }: Props) {
   const [page, setPage] = useState(initialPage);
-  const [pageCount, setPageCount] = useState<number | null>(null);
+  const [manga, setManga] = useState<{ title: string; page_count: number } | null>(null);
+  const pageCount = manga?.page_count ?? null;
   const [picking, setPicking] = useState(false);
   const [pickInput, setPickInput] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const imageWrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetchManga(mhash).then((m) => setPageCount(m.page_count)).catch(() => setPageCount(0));
+    fetchManga(mhash)
+      .then((m) => setManga({ title: m.title, page_count: m.page_count }))
+      .catch(() => setManga({ title: "", page_count: 0 }));
   }, [mhash]);
+
+  useEffect(() => {
+    imageWrapRef.current?.scrollIntoView({ behavior: "instant" as ScrollBehavior });
+  }, [page]);
 
   function goPage(n: number) {
     if (n < 1) return;
@@ -53,18 +61,20 @@ export function Reader({ mhash, initialPage }: Props) {
 
   return (
     <div class="reader">
-      <img key={page} src={`/g/${mhash}/img/${page}`} alt={`Page ${page}`} />
-      {page > 1 && <img key={page - 1} class="reader-prefetch" src={`/g/${mhash}/img/${page - 1}`} aria-hidden="true" />}
-      {pageCount !== null && page < pageCount && <img key={page + 1} class="reader-prefetch" src={`/g/${mhash}/img/${page + 1}`} aria-hidden="true" />}
-
-      <div class="reader-zone reader-zone-left" onClick={() => goPage(page - 1)} />
-      <div class="reader-zone reader-zone-right" onClick={() => goPage(page + 1)} />
-
-      <div class="reader-bar">
+      <div class="reader-header">
+        <button class="btn btn-secondary reader-back" onClick={() => navigate(`/g/${mhash}`)}>←</button>
+        <span class="reader-title">{manga?.title ?? ""}</span>
         <span class="reader-page" onClick={openPicker}>
           {page}{pageCount ? ` / ${pageCount}` : ""}
         </span>
-        <button class="btn btn-secondary" onClick={() => navigate(`/g/${mhash}`)}>?</button>
+      </div>
+
+      <div class="reader-image-wrap" ref={imageWrapRef}>
+        <img key={page} src={`/g/${mhash}/img/${page}`} alt={`Page ${page}`} />
+        {page > 1 && <img key={page - 1} class="reader-prefetch" src={`/g/${mhash}/img/${page - 1}`} aria-hidden="true" />}
+        {pageCount !== null && page < pageCount && <img key={page + 1} class="reader-prefetch" src={`/g/${mhash}/img/${page + 1}`} aria-hidden="true" />}
+        <div class="reader-zone reader-zone-left" onClick={() => goPage(page - 1)} />
+        <div class="reader-zone reader-zone-right" onClick={() => goPage(page + 1)} />
       </div>
 
       {picking && (
