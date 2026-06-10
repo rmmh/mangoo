@@ -118,7 +118,6 @@ export function Library({ page, sort }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setData(null);
     setError(null);
     fetchList(page, sort).then((d) => {
       setData(d);

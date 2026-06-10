@@ -118,7 +118,7 @@ a {
 /* ── Card grid ── */
 
 .page-wrap {
-  padding: 16px;
+  padding: 0 16px 16px;
   max-width: 1400px;
   margin: 0 auto;
 }

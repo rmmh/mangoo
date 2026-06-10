@@ -18,7 +18,6 @@ export function Search({ q, page, sort }: Props) {
   }, [q]);
 
   useEffect(() => {
-    setData(null);
     setError(null);
     fetchSearch(q, page, sort).then(setData).catch((e) => setError(e.message));
   }, [q, page, sort]);
