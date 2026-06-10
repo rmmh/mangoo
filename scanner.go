@@ -35,6 +35,7 @@ func scan(store *Store, libraries []string, thumbCh chan<- struct{}) error {
 
 	var newCount, updatedCount, skippedCount int
 	var batch []UpsertRecord
+	var lastSkipLog time.Time
 
 	flush := func() error {
 		if len(batch) == 0 {
@@ -51,13 +52,25 @@ func scan(store *Store, libraries []string, thumbCh chan<- struct{}) error {
 		return nil
 	}
 
+	const slowThreshold = time.Second
+
 	for _, lib := range libraries {
+		var curDir string
+		var dirStart time.Time
+
 		if err := filepath.WalkDir(lib, func(path string, d os.DirEntry, err error) error {
 			if err != nil {
 				slog.Debug("walk error", "path", path, "err", err)
 				return nil
 			}
 			if d.IsDir() {
+				if curDir != "" {
+					if elapsed := time.Since(dirStart); elapsed > slowThreshold {
+						slog.Info("slow directory scan", "dir", curDir, "elapsed", elapsed.Round(time.Millisecond))
+					}
+				}
+				curDir = path
+				dirStart = time.Now()
 				return nil
 			}
 			ext := strings.ToLower(filepath.Ext(d.Name()))
@@ -80,28 +93,43 @@ func scan(store *Store, libraries []string, thumbCh chan<- struct{}) error {
 			}
 			if found && existMtime == mtime && existSize == size {
 				skippedCount++
-				if skippedCount%100 == 0 {
+				if time.Since(lastSkipLog) >= 2*time.Second {
 					slog.Info("scan progress", "skipped", skippedCount)
+					lastSkipLog = time.Now()
 				}
 				return nil
 			}
 
+			fileStart := time.Now()
+
+			t := time.Now()
 			mhash, err := computeMHash(path)
 			if err != nil {
 				slog.Debug("hash failed", "path", path, "err", err)
 				return nil
 			}
+			if elapsed := time.Since(t); elapsed > slowThreshold {
+				slog.Info("slow hash", "path", path, "elapsed", elapsed.Round(time.Millisecond))
+			}
 
+			t = time.Now()
 			pageCount, fileTags, err := inspectZip(path)
 			if err != nil {
 				slog.Debug("inspect failed", "path", path, "err", err)
 				return nil
+			}
+			if elapsed := time.Since(t); elapsed > slowThreshold {
+				slog.Info("slow zip inspect", "path", path, "elapsed", elapsed.Round(time.Millisecond))
 			}
 
 			title := deriveTitle(path)
 			metaJSON, err := buildMetadataJSON(pageCount, fileTags)
 			if err != nil {
 				return err
+			}
+
+			if elapsed := time.Since(fileStart); elapsed > slowThreshold {
+				slog.Info("slow file", "path", path, "elapsed", elapsed.Round(time.Millisecond))
 			}
 
 			batch = append(batch, UpsertRecord{
@@ -129,6 +157,12 @@ func scan(store *Store, libraries []string, thumbCh chan<- struct{}) error {
 			return nil
 		}); err != nil {
 			slog.Error("walk error", "lib", lib, "err", err)
+		}
+
+		if curDir != "" {
+			if elapsed := time.Since(dirStart); elapsed > slowThreshold {
+				slog.Info("slow directory scan", "dir", curDir, "elapsed", elapsed.Round(time.Millisecond))
+			}
 		}
 	}
 
