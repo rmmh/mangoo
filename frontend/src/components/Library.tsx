@@ -1,18 +1,23 @@
 import { useState, useEffect } from "preact/hooks";
 import { fetchList, fetchRandom, fetchRescan, MangaListItem, ListResponse } from "../api";
-import { navigate, lastSearchQuery } from "./App";
+import { navigate, lastSearchQuery, currentPath } from "./App";
 
 interface Props {
   page: number;
   sort: string;
 }
 
-function SearchBar({ initialQ }: { initialQ?: string }) {
-  const [q, setQ] = useState(initialQ ?? "");
+function SearchBar() {
+  const signalQ = lastSearchQuery.value;
+  const [input, setInput] = useState(signalQ);
+  useEffect(() => { setInput(signalQ); }, [signalQ]);
 
   function submit(e: Event) {
     e.preventDefault();
-    if (q.trim()) navigate(`/search?q=${encodeURIComponent(q.trim())}`);
+    const path = currentPath.value;
+    const isSearch = path.startsWith("/search");
+    const sort = new URLSearchParams(path.split("?")[1] ?? "").get("sort") ?? "title";
+    if (input.trim()) navigate(`/search?q=${encodeURIComponent(input.trim())}${isSearch ? `&sort=${sort}` : ""}`);
   }
 
   return (
@@ -21,24 +26,35 @@ function SearchBar({ initialQ }: { initialQ?: string }) {
         class="search-input"
         type="text"
         placeholder="Search titles, tags, artists…"
-        value={q}
-        onInput={(e) => setQ((e.target as HTMLInputElement).value)}
+        value={input}
+        onInput={(e) => setInput((e.target as HTMLInputElement).value)}
       />
       <button class="btn" type="submit">Search</button>
     </form>
   );
 }
 
-export function Header({ sort, onSort, onRandom }: { sort: string; onSort: (s: string) => void; onRandom?: () => void }) {
+export function Header() {
+  const path = currentPath.value;
+  const isSearch = path.startsWith("/search");
+  const params = new URLSearchParams(path.split("?")[1] ?? "");
+  const sort = params.get("sort") ?? (isSearch ? "title" : "mtime");
+  const q = params.get("q") ?? "";
+
+  function setSort(s: string) {
+    if (isSearch) navigate(`/search?q=${encodeURIComponent(q)}&sort=${s}`);
+    else navigate(`/?sort=${s}`);
+  }
+
   return (
     <div class="header">
       <h1 onClick={() => navigate("/")}>Mangoo</h1>
-      <SearchBar initialQ={lastSearchQuery.value} />
+      <SearchBar />
       <div class="header-actions">
-        {onRandom && <button class="btn btn-blue" onClick={onRandom}>Random</button>}
+        <button class="btn btn-blue" onClick={() => goRandom(lastSearchQuery.value)}>Random</button>
         <div class="sort-toggle">
-          <button class={`btn btn-secondary${sort === "mtime" ? " active" : ""}`} onClick={() => onSort("mtime")}>Newest</button>
-          <button class={`btn btn-secondary${sort === "title" ? " active" : ""}`} onClick={() => onSort("title")}>A–Z</button>
+          <button class={`btn btn-secondary${sort === "mtime" ? " active" : ""}`} onClick={() => setSort("mtime")}>Newest</button>
+          <button class={`btn btn-secondary${sort === "title" ? " active" : ""}`} onClick={() => setSort("title")}>A–Z</button>
         </div>
       </div>
     </div>
@@ -109,17 +125,13 @@ export function Library({ page, sort }: Props) {
     }).catch((e) => setError(e.message));
   }, [page, sort]);
 
-  function setSort(s: string) {
-    navigate(`/?sort=${s}`);
-  }
-
   function setPage(p: number) {
     navigate(`/?page=${p}&sort=${sort}`);
   }
 
   return (
     <>
-      <Header sort={sort} onSort={setSort} onRandom={() => goRandom("")} />
+      <Header />
       <div class="page-wrap">
         {error && <div class="status">Error: {error}</div>}
         {!data && !error && <div class="status">Loading…</div>}

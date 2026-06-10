@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "preact/hooks";
 import { JSX } from "preact";
 import { fetchManga } from "../api";
 import { navigate } from "./App";
+import { Header } from "./Library";
 
 const resizeParams = (() => {
   const dpr = window.devicePixelRatio || 1;
@@ -83,6 +84,8 @@ export function Reader({ mhash, initialPage }: Props) {
   const progress = pageCount && pageCount > 1 ? (page - 1) / (pageCount - 1) : 0;
 
   return (
+    <>
+    <Header />
     <div class="reader" style={{ '--progress': progress } as any}>
       <div class="reader-header">
         <button class="btn btn-secondary reader-back" onClick={() => navigate(`/g/${mhash}`)}>←</button>
@@ -126,5 +129,6 @@ export function Reader({ mhash, initialPage }: Props) {
         </div>
       )}
     </div>
+    </>
   );
 }

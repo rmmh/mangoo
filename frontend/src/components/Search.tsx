@@ -1,51 +1,12 @@
 import { useState, useEffect } from "preact/hooks";
 import { fetchSearch, ListResponse } from "../api";
 import { navigate, lastSearchQuery } from "./App";
-import { CardGrid, Pagination, goRandom } from "./Library";
+import { Header, CardGrid, Pagination } from "./Library";
 
 interface Props {
   q: string;
   page: number;
   sort: string;
-}
-
-function SearchHeader({ q, sort }: { q: string; sort: string }) {
-  const [input, setInput] = useState(q);
-
-  useEffect(() => setInput(q), [q]);
-
-  function submit(e: Event) {
-    e.preventDefault();
-    if (input.trim()) navigate(`/search?q=${encodeURIComponent(input.trim())}&sort=${sort}`);
-  }
-
-  return (
-    <div class="header">
-      <h1 onClick={() => navigate("/")}>Mangoo</h1>
-      <form class="search-form" onSubmit={submit}>
-        <input
-          class="search-input"
-          type="text"
-          value={input}
-          onInput={(e) => setInput((e.target as HTMLInputElement).value)}
-          placeholder="Search…"
-          autofocus
-        />
-        <button class="btn" type="submit">Search</button>
-      </form>
-      <button class="btn btn-blue" onClick={() => goRandom(q)}>Random</button>
-      <div class="sort-toggle">
-        <button
-          class={`btn btn-secondary${sort === "mtime" ? " active" : ""}`}
-          onClick={() => navigate(`/search?q=${encodeURIComponent(q)}&sort=mtime`)}
-        >Newest</button>
-        <button
-          class={`btn btn-secondary${sort === "title" ? " active" : ""}`}
-          onClick={() => navigate(`/search?q=${encodeURIComponent(q)}&sort=title`)}
-        >A–Z</button>
-      </div>
-    </div>
-  );
 }
 
 export function Search({ q, page, sort }: Props) {
@@ -68,7 +29,7 @@ export function Search({ q, page, sort }: Props) {
 
   return (
     <>
-      <SearchHeader q={q} sort={sort} />
+      <Header />
       <div class="page-wrap">
         {data && (
           <div class="search-heading">
