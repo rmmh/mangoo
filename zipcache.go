@@ -2,11 +2,15 @@ package main
 
 import (
 	"archive/zip"
+	"bytes"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"strconv"
 	"sync"
+
+	"github.com/pixiv/go-libwebp/webp"
 )
 
 const cacheCapacity = 8
@@ -77,7 +81,7 @@ func (c *zipCache) promote(mhash string) {
 	c.lru = append([]string{mhash}, c.lru...)
 }
 
-func (c *zipCache) serveImage(w http.ResponseWriter, mhash, path string, n int) {
+func (c *zipCache) serveImage(w http.ResponseWriter, mhash, path string, n, maxW, maxH int) {
 	e, err := c.get(mhash, path)
 	if err != nil {
 		http.Error(w, "could not open archive", http.StatusInternalServerError)
@@ -101,6 +105,38 @@ func (c *zipCache) serveImage(w http.ResponseWriter, mhash, path string, n int) 
 
 	if err != nil {
 		http.Error(w, "could not read image", http.StatusInternalServerError)
+		return
+	}
+
+	if maxW > 0 || maxH > 0 {
+		img, err := decodeImage(bytes.NewReader(data), f.Name)
+		if err != nil {
+			http.Error(w, "could not decode image", http.StatusInternalServerError)
+			return
+		}
+		if maxW == 0 {
+			maxW = math.MaxInt
+		}
+		if maxH == 0 {
+			maxH = math.MaxInt
+		}
+		resized := resizeFit(img, maxW, maxH)
+		rgba := toRGBA(resized)
+		cfg, err := webp.ConfigPreset(webp.PresetDefault, 90)
+		if err != nil {
+			http.Error(w, "could not configure encoder", http.StatusInternalServerError)
+			return
+		}
+		var buf bytes.Buffer
+		if err := webp.EncodeRGBA(&buf, rgba, cfg); err != nil {
+			http.Error(w, "could not encode image", http.StatusInternalServerError)
+			return
+		}
+		data = buf.Bytes()
+		w.Header().Set("Content-Type", "image/webp")
+		w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+		w.Header().Set("Cache-Control", "public, max-age=3600")
+		w.Write(data)
 		return
 	}
 

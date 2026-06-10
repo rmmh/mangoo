@@ -1,6 +1,26 @@
 import { useState, useEffect, useRef } from "preact/hooks";
+import { JSX } from "preact";
 import { fetchManga } from "../api";
 import { navigate } from "./App";
+
+const resizeParams = (() => {
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.round(window.screen.width * dpr);
+  const h = Math.round(window.screen.height * dpr);
+  return `?w=${w}&h=${h}`;
+})();
+
+function TimedImg({ onSlow, ...props }: { onSlow: () => void } & JSX.HTMLAttributes<HTMLImageElement>) {
+  const startRef = useRef(performance.now());
+  return (
+    <img
+      {...props}
+      onLoad={() => {
+        if (performance.now() - startRef.current > 1000) onSlow();
+      }}
+    />
+  );
+}
 
 interface Props {
   mhash: string;
@@ -13,6 +33,7 @@ export function Reader({ mhash, initialPage }: Props) {
   const pageCount = manga?.page_count ?? null;
   const [picking, setPicking] = useState(false);
   const [pickInput, setPickInput] = useState("");
+  const [useResize, setUseResize] = useState(window.screen.width <= 600);
   const inputRef = useRef<HTMLInputElement>(null);
   const imageWrapRef = useRef<HTMLDivElement>(null);
 
@@ -72,9 +93,14 @@ export function Reader({ mhash, initialPage }: Props) {
       </div>
 
       <div class="reader-image-wrap" ref={imageWrapRef}>
-        <img key={page} src={`/g/${mhash}/img/${page}`} alt={`Page ${page}`} />
-        {page > 1 && <img key={page - 1} class="reader-prefetch" src={`/g/${mhash}/img/${page - 1}`} aria-hidden="true" />}
-        {pageCount !== null && page < pageCount && <img key={page + 1} class="reader-prefetch" src={`/g/${mhash}/img/${page + 1}`} aria-hidden="true" />}
+        <TimedImg
+          key={page}
+          src={`/g/${mhash}/img/${page}${useResize ? resizeParams : ""}`}
+          alt={`Page ${page}`}
+          onSlow={() => setUseResize(true)}
+        />
+        {page > 1 && <img key={page - 1} class="reader-prefetch" src={`/g/${mhash}/img/${page - 1}${useResize ? resizeParams : ""}`} aria-hidden="true" />}
+        {pageCount !== null && page < pageCount && <img key={page + 1} class="reader-prefetch" src={`/g/${mhash}/img/${page + 1}${useResize ? resizeParams : ""}`} aria-hidden="true" />}
         <div class="reader-zone reader-zone-left" onClick={() => goPage(page - 1)} />
         <div class="reader-zone reader-zone-right" onClick={() => goPage(page + 1)} />
       </div>

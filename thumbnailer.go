@@ -109,9 +109,7 @@ func thumbFromZipFile(f *zip.File) ([]byte, error) {
 	}
 
 	resized := resizeFit(img, 400, 400)
-
-	rgba := image.NewRGBA(resized.Bounds())
-	stdraw.Draw(rgba, rgba.Bounds(), resized, resized.Bounds().Min, stdraw.Src)
+	rgba := toRGBA(resized)
 
 	cfg, err := webp.ConfigPreset(webp.PresetDefault, 80)
 	if err != nil {
@@ -139,6 +137,16 @@ func decodeImage(r io.Reader, filename string) (image.Image, error) {
 	}
 	img, _, err := image.Decode(r)
 	return img, err
+}
+
+func toRGBA(img image.Image) *image.RGBA {
+	if r, ok := img.(*image.RGBA); ok {
+		return r
+	}
+	b := img.Bounds()
+	dst := image.NewRGBA(b)
+	stdraw.Draw(dst, b, img, b.Min, stdraw.Src)
+	return dst
 }
 
 func resizeFit(img image.Image, maxW, maxH int) image.Image {

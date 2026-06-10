@@ -173,12 +173,20 @@ func handleImage(ctx *handlerCtx, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var maxW, maxH int
+	if s := r.URL.Query().Get("w"); s != "" {
+		maxW, _ = strconv.Atoi(s)
+	}
+	if s := r.URL.Query().Get("h"); s != "" {
+		maxH, _ = strconv.Atoi(s)
+	}
+
 	path, err := ctx.store.GetFilePathForMhash(mhash)
 	if err != nil {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
-	ctx.cache.serveImage(w, mhash, path, n)
+	ctx.cache.serveImage(w, mhash, path, n, maxW, maxH)
 }
 
 // --- middleware ---
