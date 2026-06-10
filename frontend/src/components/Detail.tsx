@@ -1,7 +1,7 @@
 import { useState, useEffect } from "preact/hooks";
-import { fetchManga, MangaDetail, Tag } from "../api";
+import { fetchManga, fetchSimilar, MangaDetail, MangaListItem, Tag } from "../api";
 import { navigate } from "./App";
-import { Header } from "./Library";
+import { Header, CardGrid } from "./Library";
 
 interface Props {
   mhash: string;
@@ -37,11 +37,14 @@ const TAG_ORDER = ["artist", "parody", "character", "group", "category", "langua
 export function Detail({ mhash }: Props) {
   const [manga, setManga] = useState<MangaDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [similar, setSimilar] = useState<MangaListItem[] | null>(null);
 
   useEffect(() => {
     setManga(null);
     setError(null);
+    setSimilar(null);
     fetchManga(mhash).then(setManga).catch((e) => setError(e.message));
+    fetchSimilar(mhash).then(setSimilar).catch(() => setSimilar([]));
   }, [mhash]);
 
   const grouped = new Map<string, Tag[]>();
@@ -87,6 +90,12 @@ export function Detail({ mhash }: Props) {
           </>
         )}
       </div>
+      {similar && similar.length > 0 && (
+        <div class="similar-section">
+          <h2 class="similar-heading">Similar</h2>
+          <CardGrid items={similar} />
+        </div>
+      )}
     </>
   );
 }

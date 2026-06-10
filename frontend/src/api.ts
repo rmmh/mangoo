@@ -44,3 +44,9 @@ export async function fetchSearch(q: string, page: number, sort: string): Promis
   if (!r.ok) throw new Error(`search: ${r.status}`);
   return r.json();
 }
+
+export async function fetchSimilar(mhash: string): Promise<MangaListItem[]> {
+  const r = await fetch(`/api/similar/${mhash}`);
+  if (!r.ok) throw new Error(`similar: ${r.status}`);
+  return r.json();
+}

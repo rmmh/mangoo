@@ -211,6 +211,23 @@ a { color: inherit; text-decoration: none; }
 .tag-chip:hover { border-color: #f60; color: #f60; }
 
 
+/* ── Similar section ── */
+
+.similar-section {
+  padding: 0 16px 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.similar-heading {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
 /* ── Reader ── */
 
 .reader {

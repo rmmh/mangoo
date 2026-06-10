@@ -31,6 +31,7 @@ func runServer(cfg *Config, store *Store) {
 	// API
 	mux.HandleFunc("GET /api/list", makeHandler(store, cache, handleAPIList))
 	mux.HandleFunc("GET /api/manga/{mhash}", makeHandler(store, cache, handleAPIManga))
+	mux.HandleFunc("GET /api/similar/{mhash}", makeHandler(store, cache, handleAPISimilar))
 	mux.HandleFunc("GET /api/search", makeHandler(store, cache, handleAPISearch))
 	mux.HandleFunc("GET /thumb/{mhash}", makeHandler(store, cache, handleThumb))
 	mux.HandleFunc("GET /g/{mhash}/img/{n}", makeHandler(store, cache, handleImage))
@@ -92,6 +93,19 @@ func handleAPIManga(ctx *handlerCtx, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, d)
+}
+
+func handleAPISimilar(ctx *handlerCtx, w http.ResponseWriter, r *http.Request) {
+	mhash := r.PathValue("mhash")
+	items, err := ctx.store.SimilarManga(mhash, 20)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if items == nil {
+		items = []MangaListItem{}
+	}
+	writeJSON(w, items)
 }
 
 func handleAPISearch(ctx *handlerCtx, w http.ResponseWriter, r *http.Request) {
