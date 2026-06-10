@@ -108,7 +108,11 @@ func (c *zipCache) serveImage(w http.ResponseWriter, mhash, path string, n, maxW
 		return
 	}
 
-	if maxW > 0 || maxH > 0 {
+	// Skip resize+transcode when the source is small and the target dims are loose
+	// (i.e. the image is unlikely to exceed them), so we avoid pointless work.
+	smallSource := len(data) < 500_000
+	looseDims := (maxW <= 0 || maxW > 700) && (maxH <= 0 || maxH > 700)
+	if (maxW > 0 || maxH > 0) && !(smallSource && looseDims) {
 		img, err := decodeImage(bytes.NewReader(data), f.Name)
 		if err != nil {
 			http.Error(w, "could not decode image", http.StatusInternalServerError)
