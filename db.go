@@ -274,6 +274,7 @@ func (s *Store) ListManga(page, perPage int, sortBy string) ([]MangaListItem, in
 		SELECT m.mhash, m.title, m.mtime,
 		       COALESCE(json_extract(m.metadata,'$.page_count'),0)
 		FROM manga m
+		WHERE COALESCE(json_extract(m.metadata,'$.page_count'),0) > 0
 		ORDER BY %s LIMIT ? OFFSET ?`, orderBy),
 		perPage, offset)
 	if err != nil {
@@ -293,7 +294,7 @@ func (s *Store) ListManga(page, perPage int, sortBy string) ([]MangaListItem, in
 	}
 
 	var total int
-	s.db.QueryRow(`SELECT COUNT(*) FROM manga`).Scan(&total)
+	s.db.QueryRow(`SELECT COUNT(*) FROM manga WHERE COALESCE(json_extract(metadata,'$.page_count'),0) > 0`).Scan(&total)
 	return items, total, nil
 }
 
@@ -351,6 +352,7 @@ func (s *Store) Search(q string, page, perPage int, sortBy string) ([]MangaListI
 		FROM search s
 		JOIN manga m ON m.mhash=s.mhash
 		WHERE search MATCH ?
+		AND COALESCE(json_extract(m.metadata,'$.page_count'),0) > 0
 		ORDER BY %s LIMIT ? OFFSET ?`, orderBy),
 		ftsQuery, perPage, offset)
 	if err != nil {
@@ -370,7 +372,11 @@ func (s *Store) Search(q string, page, perPage int, sortBy string) ([]MangaListI
 	}
 
 	var total int
-	s.db.QueryRow(`SELECT COUNT(*) FROM search WHERE search MATCH ?`, ftsQuery).Scan(&total)
+	s.db.QueryRow(`
+		SELECT COUNT(*) FROM search s
+		JOIN manga m ON m.mhash=s.mhash
+		WHERE search MATCH ?
+		AND COALESCE(json_extract(m.metadata,'$.page_count'),0) > 0`, ftsQuery).Scan(&total)
 	return items, total, nil
 }
 
