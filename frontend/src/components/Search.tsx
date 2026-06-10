@@ -1,7 +1,7 @@
 import { useState, useEffect } from "preact/hooks";
 import { fetchSearch, ListResponse } from "../api";
-import { navigate } from "./App";
-import { CardGrid, Pagination } from "./Library";
+import { navigate, lastSearchQuery } from "./App";
+import { CardGrid, Pagination, goRandom } from "./Library";
 
 interface Props {
   q: string;
@@ -33,6 +33,7 @@ function SearchHeader({ q, sort }: { q: string; sort: string }) {
         />
         <button class="btn" type="submit">Search</button>
       </form>
+      <button class="btn btn-blue" onClick={() => goRandom(q)}>Random</button>
       <div class="sort-toggle">
         <button
           class={`btn btn-secondary${sort === "mtime" ? " active" : ""}`}
@@ -52,6 +53,10 @@ export function Search({ q, page, sort }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    lastSearchQuery.value = q;
+  }, [q]);
+
+  useEffect(() => {
     setData(null);
     setError(null);
     fetchSearch(q, page, sort).then(setData).catch((e) => setError(e.message));
@@ -65,10 +70,9 @@ export function Search({ q, page, sort }: Props) {
     <>
       <SearchHeader q={q} sort={sort} />
       <div class="page-wrap">
-        {q && (
+        {data && (
           <div class="search-heading">
-            Results for <strong>{q}</strong>
-            {data ? ` — ${data.total} found` : ""}
+            {data.total} found
           </div>
         )}
         {error && <div class="status">Error: {error}</div>}

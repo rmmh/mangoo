@@ -358,6 +358,22 @@ func (s *Store) GetManga(mhash string) (*MangaDetail, error) {
 	return &d, nil
 }
 
+func (s *Store) RandomManga(q string) (string, error) {
+	ftsQuery := buildFTSQuery(q)
+	var mhash string
+	var err error
+	if ftsQuery == "" {
+		err = s.db.QueryRow(`SELECT mhash FROM manga ORDER BY RANDOM() LIMIT 1`).Scan(&mhash)
+	} else {
+		err = s.db.QueryRow(`
+			SELECT m.mhash FROM search s
+			JOIN manga m ON m.mhash=s.mhash
+			WHERE search MATCH ?
+			ORDER BY RANDOM() LIMIT 1`, ftsQuery).Scan(&mhash)
+	}
+	return mhash, err
+}
+
 func (s *Store) Search(q string, page, perPage int, sortBy string) ([]MangaListItem, int, error) {
 	ftsQuery := buildFTSQuery(q)
 	if ftsQuery == "" {

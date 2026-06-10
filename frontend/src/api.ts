@@ -45,6 +45,12 @@ export async function fetchSearch(q: string, page: number, sort: string): Promis
   return r.json();
 }
 
+export async function fetchRandom(q: string): Promise<{ mhash: string }> {
+  const r = await fetch(`/api/random?q=${encodeURIComponent(q)}`);
+  if (!r.ok) throw new Error(`random: ${r.status}`);
+  return r.json();
+}
+
 export async function fetchSimilar(mhash: string): Promise<MangaListItem[]> {
   const r = await fetch(`/api/similar/${mhash}`);
   if (!r.ok) throw new Error(`similar: ${r.status}`);

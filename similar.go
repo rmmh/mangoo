@@ -63,13 +63,36 @@ func (s *Store) SimilarManga(mhash string, limit int) ([]MangaListItem, error) {
 
 	items = items[:dynamicCutoff(scores, limit)]
 
+	// Nudge scores toward natural (alphabetical) order without overriding relevance.
+	// Items that would appear earlier in natural order get +20%; later get -20%.
+	if len(items) > 1 {
+		naturalOrder := make([]int, len(items))
+		for i := range naturalOrder {
+			naturalOrder[i] = i
+		}
+		slices.SortFunc(naturalOrder, func(a, b int) int {
+			return natural.Compare(items[a].item.Title, items[b].item.Title)
+		})
+		naturalPos := make([]int, len(items))
+		for naturalIdx, scoreIdx := range naturalOrder {
+			naturalPos[scoreIdx] = naturalIdx
+		}
+		for i := range items {
+			if naturalPos[i] < i {
+				items[i].score *= 1.2
+			} else if naturalPos[i] > i {
+				items[i].score *= 0.8
+			}
+		}
+		slices.SortFunc(items, func(a, b scored) int {
+			return cmp.Compare(b.score, a.score)
+		})
+	}
+
 	result := make([]MangaListItem, len(items))
 	for i, it := range items {
 		result[i] = it.item
 	}
-	slices.SortFunc(result, func(a, b MangaListItem) int {
-		return natural.Compare(a.Title, b.Title)
-	})
 	return result, nil
 }
 

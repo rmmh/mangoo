@@ -1,4 +1,5 @@
 import { signal } from "@preact/signals";
+export const lastSearchQuery = signal("");
 import { Library } from "./Library";
 import { Detail } from "./Detail";
 import { Reader } from "./Reader";
@@ -36,7 +37,7 @@ export function App() {
   if (pathname === "/search") {
     const q = params.get("q") ?? "";
     const page = parseInt(params.get("page") ?? "1", 10);
-    const sort = params.get("sort") ?? "mtime";
+    const sort = params.get("sort") ?? "title";
     return <Search q={q} page={page} sort={sort} />;
   }
 

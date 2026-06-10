@@ -1,7 +1,7 @@
 import { useState, useEffect } from "preact/hooks";
 import { fetchManga, fetchSimilar, MangaDetail, MangaListItem, Tag } from "../api";
-import { navigate } from "./App";
-import { Header, CardGrid } from "./Library";
+import { navigate, lastSearchQuery } from "./App";
+import { Header, CardGrid, goRandom } from "./Library";
 
 interface Props {
   mhash: string;
@@ -63,7 +63,7 @@ export function Detail({ mhash }: Props) {
 
   return (
     <>
-      <Header sort="mtime" onSort={() => {}} />
+      <Header sort="mtime" onSort={() => {}} onRandom={() => goRandom(lastSearchQuery.value)} />
       <div class="detail-wrap">
         {error && <div class="status">Error: {error}</div>}
         {!manga && !error && <div class="status">Loading…</div>}

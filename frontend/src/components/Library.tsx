@@ -1,6 +1,6 @@
 import { useState, useEffect } from "preact/hooks";
-import { fetchList, MangaListItem, ListResponse } from "../api";
-import { navigate } from "./App";
+import { fetchList, fetchRandom, MangaListItem, ListResponse } from "../api";
+import { navigate, lastSearchQuery } from "./App";
 
 interface Props {
   page: number;
@@ -29,17 +29,22 @@ function SearchBar({ initialQ }: { initialQ?: string }) {
   );
 }
 
-export function Header({ sort, onSort }: { sort: string; onSort: (s: string) => void }) {
+export function Header({ sort, onSort, onRandom }: { sort: string; onSort: (s: string) => void; onRandom?: () => void }) {
   return (
     <div class="header">
       <h1 onClick={() => navigate("/")}>Mangoo</h1>
-      <SearchBar />
+      <SearchBar initialQ={lastSearchQuery.value} />
+      {onRandom && <button class="btn btn-blue" onClick={onRandom}>Random</button>}
       <div class="sort-toggle">
         <button class={`btn btn-secondary${sort === "mtime" ? " active" : ""}`} onClick={() => onSort("mtime")}>Newest</button>
         <button class={`btn btn-secondary${sort === "title" ? " active" : ""}`} onClick={() => onSort("title")}>A–Z</button>
       </div>
     </div>
   );
+}
+
+export function goRandom(q: string) {
+  fetchRandom(q).then((r) => navigate(`/g/${r.mhash}`)).catch(() => {});
 }
 
 export function CardGrid({ items }: { items: MangaListItem[] }) {
@@ -87,7 +92,7 @@ export function Library({ page, sort }: Props) {
 
   return (
     <>
-      <Header sort={sort} onSort={setSort} />
+      <Header sort={sort} onSort={setSort} onRandom={() => goRandom("")} />
       <div class="page-wrap">
         {error && <div class="status">Error: {error}</div>}
         {!data && !error && <div class="status">Loading…</div>}

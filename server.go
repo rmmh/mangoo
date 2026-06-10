@@ -33,6 +33,7 @@ func runServer(cfg *Config, store *Store) {
 	mux.HandleFunc("GET /api/manga/{mhash}", makeHandler(store, cache, handleAPIManga))
 	mux.HandleFunc("GET /api/similar/{mhash}", makeHandler(store, cache, handleAPISimilar))
 	mux.HandleFunc("GET /api/search", makeHandler(store, cache, handleAPISearch))
+	mux.HandleFunc("GET /api/random", makeHandler(store, cache, handleAPIRandom))
 	mux.HandleFunc("GET /thumb/{mhash}", makeHandler(store, cache, handleThumb))
 	mux.HandleFunc("GET /g/{mhash}/img/{n}", makeHandler(store, cache, handleImage))
 
@@ -131,6 +132,16 @@ func handleAPISearch(ctx *handlerCtx, w http.ResponseWriter, r *http.Request) {
 		"page":     page,
 		"per_page": 20,
 	})
+}
+
+func handleAPIRandom(ctx *handlerCtx, w http.ResponseWriter, r *http.Request) {
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	mhash, err := ctx.store.RandomManga(q)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "no results")
+		return
+	}
+	writeJSON(w, map[string]string{"mhash": mhash})
 }
 
 func handleThumb(ctx *handlerCtx, w http.ResponseWriter, r *http.Request) {
