@@ -70,8 +70,9 @@ export function Detail({ mhash }: Props) {
       <div class="detail-wrap">
         {error && <div class="status">Error: {error}</div>}
         <div class="detail-cover" onClick={() => manga && navigate(`/g/${mhash}/1`)}>
-          <img src={`/thumb/${mhash}`} alt="" aria-hidden="true" />
+          <img key={mhash} src={`/thumb/${mhash}`} alt="" aria-hidden="true" />
           <img
+            key={mhash}
             class="detail-cover-full"
             src={`/g/${mhash}/img/1?w=680`}
             alt={manga?.title ?? ""}
