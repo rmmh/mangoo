@@ -8,9 +8,11 @@ import { Search } from "./Search";
 history.scrollRestoration = "manual";
 
 export const currentPath = signal(location.pathname + location.search);
+export const previousPath = signal("");
 
 export function navigate(path: string) {
   history.replaceState({ scrollY: window.scrollY }, "");
+  previousPath.value = currentPath.value;
   history.pushState(null, "", path);
   currentPath.value = path;
 }

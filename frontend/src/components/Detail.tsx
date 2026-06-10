@@ -1,6 +1,6 @@
 import { useState, useEffect, useLayoutEffect } from "preact/hooks";
 import { fetchManga, fetchSimilar, MangaDetail, MangaListItem, Tag } from "../api";
-import { navigate } from "./App";
+import { navigate, previousPath } from "./App";
 import { Header, CardGrid, goRandom } from "./Library";
 
 interface Props {
@@ -38,6 +38,10 @@ export function Detail({ mhash }: Props) {
   const [manga, setManga] = useState<MangaDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [similar, setSimilar] = useState<MangaListItem[] | null>(null);
+  const [readerBack] = useState<string | null>(() => {
+    const prev = previousPath.value;
+    return /^\/g\/[^/]+\/\d+$/.test(prev) ? prev : null;
+  });
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
   }, [mhash]);
@@ -49,6 +53,15 @@ export function Detail({ mhash }: Props) {
     fetchManga(mhash).then(setManga).catch((e) => setError(e.message));
     fetchSimilar(mhash).then(setSimilar).catch(() => setSimilar([]));
   }, [mhash]);
+
+  useEffect(() => {
+    if (!readerBack) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "ArrowLeft") { e.preventDefault(); navigate(readerBack!); }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [readerBack]);
 
   const grouped = new Map<string, Tag[]>();
   if (manga?.tags) {
@@ -69,6 +82,9 @@ export function Detail({ mhash }: Props) {
       <Header />
       <div class="detail-wrap">
         {error && <div class="status">Error: {error}</div>}
+        {readerBack && (
+          <button class="btn btn-secondary reader-back" onClick={() => navigate(readerBack)}>←</button>
+        )}
         <div class="detail-cover" onClick={() => manga && navigate(`/g/${mhash}/1`)}>
           <img key={mhash} src={`/thumb/${mhash}`} alt="" aria-hidden="true" />
           <img
