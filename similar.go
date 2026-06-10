@@ -2,6 +2,8 @@ package main
 
 import (
 	"cmp"
+	"fmt"
+	"log/slog"
 	"slices"
 	"strings"
 	"unicode"
@@ -39,9 +41,27 @@ func (s *Store) SimilarManga(mhash string, limit int) ([]MangaListItem, error) {
 	slices.SortFunc(items, func(a, b scored) int {
 		return cmp.Compare(b.score, a.score) // descending
 	})
-	if len(items) > limit {
-		items = items[:limit]
+
+	scores := make([]float64, len(items))
+	for i, it := range items {
+		scores[i] = it.score
 	}
+
+	top5 := items
+	if len(top5) > 5 {
+		top5 = top5[:5]
+	}
+	slog.Debug("similar top5", "mhash", mhash, "total_scored", len(items),
+		"top5", func() []string {
+			out := make([]string, len(top5))
+			for i, it := range top5 {
+				out[i] = fmt.Sprintf("%s %.2f", it.item.Mhash, it.score)
+			}
+			return out
+		}())
+
+
+	items = items[:dynamicCutoff(scores, limit)]
 
 	result := make([]MangaListItem, len(items))
 	for i, it := range items {
@@ -54,16 +74,30 @@ func (s *Store) SimilarManga(mhash string, limit int) ([]MangaListItem, error) {
 }
 
 func (s *Store) gatherSimilarCandidates(target *MangaDetail, max int) ([]candidateItem, error) {
-	var parts []string
+	seen := make(map[string]bool)
+	var out []candidateItem
 
+	// Pass 1: artist-only scan — artists are the strongest similarity signal.
+	var artistParts []string
 	for _, t := range target.Tags {
-		switch t.Type {
-		case "artist", "parody", "character":
-			col := ftsColFor(t.Type)
-			parts = append(parts, col+" : "+escapeFTSValue(t.Name))
+		if t.Type == "artist" {
+			artistParts = append(artistParts, ftsColFor("artist")+" : "+escapeFTSValue(t.Name))
+		}
+	}
+	if len(artistParts) > 0 {
+		if err := s.scanFTSCandidates(target.Mhash, strings.Join(artistParts, " OR "), max, seen, &out); err != nil {
+			return nil, err
 		}
 	}
 
+	// Pass 2: general scan — parody, character, and title words.
+	var parts []string
+	for _, t := range target.Tags {
+		switch t.Type {
+		case "parody", "character":
+			parts = append(parts, ftsColFor(t.Type)+" : "+escapeFTSValue(t.Name))
+		}
+	}
 	words := titleWords(target.Title)
 	for i, w := range words {
 		if i >= 3 {
@@ -71,13 +105,16 @@ func (s *Store) gatherSimilarCandidates(target *MangaDetail, max int) ([]candida
 		}
 		parts = append(parts, "title : "+escapeFTSValue(w))
 	}
-
-	if len(parts) == 0 {
-		return nil, nil
+	if len(parts) > 0 {
+		if err := s.scanFTSCandidates(target.Mhash, strings.Join(parts, " OR "), max, seen, &out); err != nil {
+			return nil, err
+		}
 	}
 
-	ftsQuery := strings.Join(parts, " OR ")
+	return out, nil
+}
 
+func (s *Store) scanFTSCandidates(excludeMhash, ftsQuery string, limit int, seen map[string]bool, out *[]candidateItem) error {
 	rows, err := s.db.Query(`
 		SELECT m.mhash, m.title, m.mtime,
 		       COALESCE(json_extract(m.metadata,'$.page_count'),0),
@@ -85,28 +122,26 @@ func (s *Store) gatherSimilarCandidates(target *MangaDetail, max int) ([]candida
 		FROM search s
 		JOIN manga m ON m.mhash=s.mhash
 		WHERE s.mhash != ? AND search MATCH ?
-		LIMIT ?`, target.Mhash, ftsQuery, max)
+		LIMIT ?`, excludeMhash, ftsQuery, limit)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer rows.Close()
 
-	seen := make(map[string]bool)
-	var out []candidateItem
 	for rows.Next() {
 		var c candidateItem
 		var metaJSON string
 		if err := rows.Scan(&c.Mhash, &c.Title, &c.Mtime, &c.PageCount, &metaJSON); err != nil {
-			return nil, err
+			return err
 		}
 		if seen[c.Mhash] {
 			continue
 		}
 		seen[c.Mhash] = true
 		c.tags = tagsFromMetadataJSON(metaJSON)
-		out = append(out, c)
+		*out = append(*out, c)
 	}
-	return out, rows.Err()
+	return rows.Err()
 }
 
 var tagWeights = map[string]float64{
@@ -181,6 +216,43 @@ func trigramJaccard(a, b map[string]struct{}) float64 {
 		return 0
 	}
 	return float64(intersection) / float64(union)
+}
+
+// dynamicCutoff picks a natural end index for a descending score slice.
+//
+// It first trims items below a floor (the greater of 1.5 points or 15% of
+// the top score), then cuts at the first "cliff" — a step where the score
+// drops by half or more relative to the previous item. hardMax is the
+// absolute upper bound regardless of the curve.
+func dynamicCutoff(scores []float64, hardMax int) int {
+	n := min(len(scores), hardMax)
+	if n == 0 {
+		return 0
+	}
+	top := scores[0]
+	if top == 0 {
+		return 0
+	}
+
+	// Score floor: at least 15% of the best score.
+	floor := top * 0.15
+	for i := range n {
+		if scores[i] < floor {
+			n = i
+			break
+		}
+	}
+	if n == 0 {
+		return 0
+	}
+
+	// First cliff: score falls to half or less of the previous item's score.
+	for i := 1; i < n; i++ {
+		if scores[i] <= scores[i-1]*0.5 {
+			return i
+		}
+	}
+	return n
 }
 
 // titleWords returns lowercase words of 3+ runes, capped at a reasonable count.
