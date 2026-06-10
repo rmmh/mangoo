@@ -63,7 +63,7 @@ export function Reader({ mhash, initialPage }: Props) {
 
   function commitPick() {
     const n = parseInt(pickInput, 10);
-    if (!isNaN(n)) goPage(n);
+    if (!isNaN(n)) goPage(Math.min(n, pageCount!));
     setPicking(false);
   }
 
@@ -122,7 +122,7 @@ export function Reader({ mhash, initialPage }: Props) {
                 const val = (e.target as HTMLInputElement).value;
                 setPickInput(val);
                 const n = parseInt(val, 10);
-                if (!isNaN(n)) goPage(n);
+                if (!isNaN(n)) goPage(Math.min(n, pageCount!));
               }}
             />
           </form>

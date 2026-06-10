@@ -80,12 +80,14 @@ export function CardGrid({ items }: { items: MangaListItem[] }) {
 
 export function Pagination({ page, total, perPage, onPage }: { page: number; total: number; perPage: number; onPage: (p: number) => void }) {
   const totalPages = Math.max(1, Math.ceil(total / perPage));
-  if (totalPages <= 1) return null;
   return (
     <div class="pagination">
-      <button class="btn btn-secondary" style={{ visibility: page > 1 ? "visible" : "hidden" }} onClick={() => onPage(page - 1)}>← Prev</button>
-      <span>Page {page} / {totalPages}</span>
-      <button class="btn btn-secondary" style={{ visibility: page < totalPages ? "visible" : "hidden" }} onClick={() => onPage(page + 1)}>Next →</button>
+      <button class={`btn btn-secondary${page <= 1 ? " invisible" : ""}`} onClick={() => onPage(page - 1)}>← Prev</button>
+      <div class="pagination-info">
+        {totalPages > 1 && <div>Page {page} / {totalPages}</div>}
+        <div>{total.toLocaleString()} items</div>
+      </div>
+      <button class={`btn btn-secondary${page >= totalPages ? " invisible" : ""}`} onClick={() => onPage(page + 1)}>Next →</button>
     </div>
   );
 }
@@ -137,6 +139,7 @@ export function Library({ page, sort }: Props) {
         {!data && !error && <div class="status">Loading…</div>}
         {data && (
           <>
+            <Pagination page={page} total={data.total} perPage={data.per_page} onPage={setPage} />
             <CardGrid items={data.manga} />
             <Pagination page={page} total={data.total} perPage={data.per_page} onPage={setPage} />
             <div class="rescan-row">

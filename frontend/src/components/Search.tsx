@@ -31,15 +31,11 @@ export function Search({ q, page, sort }: Props) {
     <>
       <Header />
       <div class="page-wrap">
-        {data && (
-          <div class="search-heading">
-            {data.total} found
-          </div>
-        )}
         {error && <div class="status">Error: {error}</div>}
         {!data && !error && <div class="status">Searching…</div>}
         {data && (
           <>
+            <Pagination page={page} total={data.total} perPage={data.per_page} onPage={setPage} />
             {data.manga.length === 0 && <div class="status">No results.</div>}
             <CardGrid items={data.manga} />
             <Pagination page={page} total={data.total} perPage={data.per_page} onPage={setPage} />

@@ -75,7 +75,6 @@ export function Detail({ mhash }: Props) {
             class="detail-cover-full"
             src={`/g/${mhash}/img/1?w=680`}
             alt={manga?.title ?? ""}
-            style={{ opacity: 0 }}
             onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "1"; }}
           />
         </div>

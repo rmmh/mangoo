@@ -168,12 +168,18 @@ a {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 24px 0 8px;
+  padding: 16px 0;
 }
 
-.pagination span {
+.pagination-info {
+  text-align: center;
   font-size: 0.85rem;
   color: #888;
+  line-height: 1.4;
+}
+
+.invisible {
+  visibility: hidden;
 }
 
 /* ── Detail page ── */
@@ -212,6 +218,7 @@ a {
   height: 100%;
   object-fit: cover;
   object-position: top;
+  opacity: 0;
   transition: opacity 0.15s;
 }
 
@@ -231,6 +238,7 @@ a {
   font-size: 0.82rem;
   color: #888;
   line-height: 1.8;
+  word-break: break-all;
 }
 
 .detail-meta strong {
@@ -297,23 +305,7 @@ a {
 /* ── Reader ── */
 
 .reader {
-  /* A single, solid block of your accent color */
-  background-image: linear-gradient(#1a2c3a, #1a2c3a);
-
-  /* Pin it to the top-left corner */
-  background-position: left top;
-  background-repeat: no-repeat;
-
-  /* Scale both width and height dynamically using your progress variable */
-  background-size:
-    calc(var(--progress, 0) * 100%)
-    /* Width */
-    calc(var(--progress, 0) * 100%);
-  /* Height */
-
-  /* The black canvas underneath */
-  background-color: #000000;
-
+  background-color: #000;
   user-select: none;
   min-height: 100dvh;
 }
@@ -364,7 +356,12 @@ a {
   justify-content: center;
   align-items: center;
   height: 100dvh;
-  background: transparent;
+  background-image: linear-gradient(#1a2c3a, #1a2c3a);
+  background-position: left top;
+  background-repeat: no-repeat;
+  /* grows as a square from top-left: width then height */
+  background-size: calc(var(--progress, 0) * 100%) calc(var(--progress, 0) * 100%);
+  background-color: #000;
 }
 
 .reader-image-wrap>img:not(.reader-prefetch) {
@@ -428,14 +425,6 @@ a {
 .page-picker-input:focus {
   outline: none;
   border-color: #f60;
-}
-
-/* ── Search page ── */
-
-.search-heading {
-  padding: 12px 0 16px;
-  font-size: 0.9rem;
-  color: #888;
 }
 
 /* ── Rescan ── */
