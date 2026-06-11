@@ -48,7 +48,7 @@ export function Header() {
 
   return (
     <div class="header">
-      <h1 onClick={() => navigate("/")}>Mangoo</h1>
+      <h1 onClick={() => { lastSearchQuery.value = ""; navigate("/"); }}>Mangoo</h1>
       <SearchBar />
       <div class="header-actions">
         <button class="btn btn-blue" onClick={() => goRandom(lastSearchQuery.value)}>Random</button>
