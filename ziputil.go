@@ -1,7 +1,6 @@
 package main
 
 import (
-	"archive/zip"
 	"cmp"
 	"path/filepath"
 	"slices"
@@ -16,13 +15,10 @@ var imageExts = map[string]bool{
 	".webp": true,
 }
 
-func filterAndSortImages(files []*zip.File) []*zip.File {
-	var images []*zip.File
+func filterAndSortImages(files []ArchiveFile) []ArchiveFile {
+	var images []ArchiveFile
 	for _, f := range files {
-		if f.FileInfo().IsDir() {
-			continue
-		}
-		name := f.Name
+		name := f.Name()
 		if strings.HasPrefix(name, "__MACOSX/") {
 			continue
 		}
@@ -38,8 +34,8 @@ func filterAndSortImages(files []*zip.File) []*zip.File {
 			images = append(images, f)
 		}
 	}
-	slices.SortFunc(images, func(a, b *zip.File) int {
-		return cmp.Compare(a.Name, b.Name)
+	slices.SortFunc(images, func(a, b ArchiveFile) int {
+		return cmp.Compare(a.Name(), b.Name())
 	})
 	return images
 }

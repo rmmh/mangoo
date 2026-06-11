@@ -1,7 +1,6 @@
 package main
 
 import (
-	"archive/zip"
 	"bytes"
 	"fmt"
 	"io"
@@ -24,8 +23,8 @@ type zipCache struct {
 
 type cacheEntry struct {
 	mu     sync.Mutex
-	reader *zip.ReadCloser
-	images []*zip.File
+	closer io.Closer
+	images []ArchiveFile
 }
 
 func newZipCache() *zipCache {
@@ -53,18 +52,18 @@ func (c *zipCache) get(mhash, path string) (*cacheEntry, error) {
 		// close after releasing c.mu (we hold it now but close is last thing we do)
 		go func() {
 			evicted.mu.Lock()
-			evicted.reader.Close()
+			evicted.closer.Close()
 			evicted.mu.Unlock()
 		}()
 	}
 
-	r, err := zip.OpenReader(path)
+	a, err := openArchive(path)
 	if err != nil {
-		return nil, fmt.Errorf("open zip %s: %w", path, err)
+		return nil, fmt.Errorf("open archive %s: %w", path, err)
 	}
 	e := &cacheEntry{
-		reader: r,
-		images: filterAndSortImages(r.File),
+		closer: a,
+		images: filterAndSortImages(a.Files()),
 	}
 	c.entries[mhash] = e
 	c.lru = append([]string{mhash}, c.lru...)
@@ -113,7 +112,7 @@ func (c *zipCache) serveImage(w http.ResponseWriter, mhash, path string, n, maxW
 	smallSource := len(data) < 500_000
 	looseDims := (maxW <= 0 || maxW > 700) && (maxH <= 0 || maxH > 700)
 	if (maxW > 0 || maxH > 0) && !(smallSource && looseDims) {
-		img, err := decodeImage(bytes.NewReader(data), f.Name)
+		img, err := decodeImage(bytes.NewReader(data), f.Name())
 		if err != nil {
 			http.Error(w, "could not decode image", http.StatusInternalServerError)
 			return
@@ -144,7 +143,7 @@ func (c *zipCache) serveImage(w http.ResponseWriter, mhash, path string, n, maxW
 		return
 	}
 
-	w.Header().Set("Content-Type", imageMIME(f.Name))
+	w.Header().Set("Content-Type", imageMIME(f.Name()))
 	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 	w.Header().Set("Cache-Control", "public, max-age=3600")
 	w.Write(data)

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"archive/zip"
 	"bytes"
 	"image"
 	stdraw "image/draw"
@@ -75,22 +74,22 @@ func processThumbnails(store *Store, stats *Stats) error {
 	return nil
 }
 
-func makeThumbnail(zipPath string) ([]byte, error) {
-	r, err := zip.OpenReader(zipPath)
+func makeThumbnail(archivePath string) ([]byte, error) {
+	a, err := openArchive(archivePath)
 	if err != nil {
 		return nil, err
 	}
-	defer r.Close()
+	defer a.Close()
 
-	images := filterAndSortImages(r.File)
+	images := filterAndSortImages(a.Files())
 	if len(images) == 0 {
 		return nil, nil
 	}
 
 	for i := range min(3, len(images)) {
-		data, err := thumbFromZipFile(images[i])
+		data, err := thumbFromArchiveFile(images[i])
 		if err != nil {
-			slog.Debug("thumb decode failed", "file", images[i].Name, "err", err)
+			slog.Debug("thumb decode failed", "file", images[i].Name(), "err", err)
 			continue
 		}
 		return data, nil
@@ -98,14 +97,14 @@ func makeThumbnail(zipPath string) ([]byte, error) {
 	return nil, nil
 }
 
-func thumbFromZipFile(f *zip.File) ([]byte, error) {
+func thumbFromArchiveFile(f ArchiveFile) ([]byte, error) {
 	rc, err := f.Open()
 	if err != nil {
 		return nil, err
 	}
 	defer rc.Close()
 
-	img, err := decodeImage(rc, f.Name)
+	img, err := decodeImage(rc, f.Name())
 	if err != nil {
 		return nil, err
 	}

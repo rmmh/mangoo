@@ -1,7 +1,6 @@
 package main
 
 import (
-	"archive/zip"
 	"bytes"
 	"encoding/binary"
 	"net/http"
@@ -29,14 +28,14 @@ func (s *server) handleThumbStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	zr, err := zip.OpenReader(path)
+	zr, err := openArchive(path)
 	if err != nil {
 		writeError(w, 500, "cannot open archive")
 		return
 	}
 	defer zr.Close()
 
-	images := filterAndSortImages(zr.File)
+	images := filterAndSortImages(zr.Files())
 	if offset >= len(images) {
 		w.WriteHeader(200)
 		return
@@ -103,14 +102,14 @@ func (s *server) handleThumbStream(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func pageThumb(f *zip.File, maxW, maxH int) ([]byte, error) {
+func pageThumb(f ArchiveFile, maxW, maxH int) ([]byte, error) {
 	rc, err := f.Open()
 	if err != nil {
 		return nil, err
 	}
 	defer rc.Close()
 
-	img, err := decodeImage(rc, f.Name)
+	img, err := decodeImage(rc, f.Name())
 	if err != nil {
 		return nil, err
 	}

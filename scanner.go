@@ -1,7 +1,6 @@
 package main
 
 import (
-	"archive/zip"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -97,7 +96,10 @@ func scan(store *Store, libraries []string, thumbCh chan<- struct{}, stats *Stat
 				return nil
 			}
 			ext := strings.ToLower(filepath.Ext(d.Name()))
-			if ext != ".zip" && ext != ".cbz" {
+			if ext != ".zip" && ext != ".cbz" &&
+				ext != ".rar" && ext != ".cbr" &&
+				ext != ".7z" && ext != ".cb7" &&
+				ext != ".tar" && ext != ".cbt" {
 				return nil
 			}
 
@@ -147,12 +149,12 @@ func scan(store *Store, libraries []string, thumbCh chan<- struct{}, stats *Stat
 			logSlow("hash", path, t)
 
 			t = time.Now()
-			pageCount, fileTags, err := inspectZip(path)
+			pageCount, fileTags, err := inspectArchive(path)
 			if err != nil {
 				slog.Debug("inspect failed", "path", path, "err", err)
 				return nil
 			}
-			logSlow("zip inspect", path, t)
+			logSlow("archive inspect", path, t)
 
 			title := deriveTitle(path)
 			metaJSON, err := buildMetadataJSON(pageCount, fileTags)
@@ -239,21 +241,18 @@ func scan(store *Store, libraries []string, thumbCh chan<- struct{}, stats *Stat
 	return nil
 }
 
-func inspectZip(path string) (pageCount int, tags []Tag, err error) {
-	r, err := zip.OpenReader(path)
+func inspectArchive(path string) (pageCount int, tags []Tag, err error) {
+	a, err := openArchive(path)
 	if err != nil {
 		return 0, nil, err
 	}
-	defer r.Close()
+	defer a.Close()
 
-	images := filterAndSortImages(r.File)
-	pageCount = len(images)
+	files := a.Files()
+	pageCount = len(filterAndSortImages(files))
 
-	for _, f := range r.File {
-		if f.FileInfo().IsDir() {
-			continue
-		}
-		if strings.EqualFold(filepath.Base(f.Name), "metadata.json") {
+	for _, f := range files {
+		if strings.EqualFold(filepath.Base(f.Name()), "metadata.json") {
 			rc, err := f.Open()
 			if err != nil {
 				break
