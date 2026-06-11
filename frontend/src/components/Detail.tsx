@@ -70,6 +70,13 @@ export function Detail({ mhash }: Props) {
   });
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
+    const revoke = (prev: Map<number, string>) => {
+      prev.forEach(URL.revokeObjectURL);
+      return new Map<number, string>();
+    };
+    setTotalPages(0);
+    setPageThumbs(revoke);
+    return () => setPageThumbs(revoke);
   }, [mhash]);
 
   useEffect(() => {
@@ -83,7 +90,7 @@ export function Detail({ mhash }: Props) {
   useEffect(() => {
     const initial = new Map<number, string>();
     let startPage = 1;
-    for (;;) {
+    for (; ;) {
       const cached = cacheGet(`${mhash}:${startPage}`);
       if (!cached) break;
       initial.set(startPage, URL.createObjectURL(new Blob([cached], { type: "image/webp" })));
@@ -104,14 +111,7 @@ export function Detail({ mhash }: Props) {
       setPageThumbs((prev) => new Map(prev).set(page, url));
     });
 
-    return () => {
-      ac.abort();
-      setTotalPages(0);
-      setPageThumbs((prev) => {
-        prev.forEach((url) => URL.revokeObjectURL(url));
-        return new Map();
-      });
-    };
+    return () => ac.abort();
   }, [mhash]);
 
   useEffect(() => {
