@@ -36,7 +36,8 @@ zipcache.go     LRU-8 open zip.ReadClosers with sorted image slices
 ziputil.go      filterAndSortImages shared by scanner, thumbnailer, zipcache
 similar.go      SimilarManga: tag-weight + trigram-Jaccard scoring
 server.go       HTTP mux, handlers, logging middleware
-embed.go        //go:embed for frontend/dist
+stream.go       GET /api/thumbs: streams length-prefixed WebP thumbnails for a gallery
+embed.go        //go:embed for frontend/dist and mangoo.example.toml
 frontend/src/   Preact SPA
   api.ts        typed fetch wrappers
   components/
@@ -64,6 +65,7 @@ GET  /api/similar/{mhash}
 GET  /api/search            ?q=...&page=N&sort=...
 GET  /api/random            ?q=...
 POST /api/rescan
+GET  /api/thumbs            ?m=mhash&o=offset&w=W&h=H (streaming WebP thumbnails)
 GET  /thumb/{mhash}
 GET  /g/{mhash}/img/{n}
 GET  /static/               embedded frontend/dist

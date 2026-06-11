@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"net/http"
+	"runtime"
 	"strconv"
 
 	"github.com/pixiv/go-libwebp/webp"
@@ -55,24 +56,49 @@ func (s *server) handleThumbStream(w http.ResponseWriter, r *http.Request) {
 		flusher.Flush()
 	}
 
-	for i := offset; i < len(images); i++ {
+	// Worker pool: NumCPU/2 goroutines encode thumbs in parallel; results are
+	// collected in per-image channels so they can be flushed in page order.
+	total := len(images) - offset
+	chs := make([]chan []byte, total)
+	for i := range chs {
+		chs[i] = make(chan []byte, 1)
+	}
+
+	work := make(chan int)
+	for range max(1, runtime.NumCPU()/2) {
+		go func() {
+			for i := range work {
+				data, _ := pageThumb(images[offset+i], thumbW, thumbH)
+				chs[i] <- data
+			}
+		}()
+	}
+	go func() {
+		defer close(work)
+		for i := range total {
+			select {
+			case work <- i:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	for _, ch := range chs {
 		select {
 		case <-ctx.Done():
 			return
-		default:
-		}
-
-		data, err := pageThumb(images[i], thumbW, thumbH)
-		if err != nil {
-			continue
-		}
-
-		var hdr [4]byte
-		binary.BigEndian.PutUint32(hdr[:], uint32(len(data)))
-		w.Write(hdr[:])
-		w.Write(data)
-		if canFlush {
-			flusher.Flush()
+		case data := <-ch:
+			if data == nil {
+				continue
+			}
+			var hdr [4]byte
+			binary.BigEndian.PutUint32(hdr[:], uint32(len(data)))
+			w.Write(hdr[:])
+			w.Write(data)
+			if canFlush {
+				flusher.Flush()
+			}
 		}
 	}
 }
