@@ -1,7 +1,30 @@
-import { useState, useEffect, useLayoutEffect } from "preact/hooks";
-import { fetchManga, fetchSimilar, MangaDetail, MangaListItem, Tag } from "../api";
+import { useState, useEffect, useLayoutEffect, useRef } from "preact/hooks";
+import { fetchManga, fetchSimilar, streamThumbs, MangaDetail, MangaListItem, Tag } from "../api";
 import { navigate, previousPath } from "./App";
 import { Header, CardGrid, goRandom } from "./Library";
+
+const THUMB_CACHE_MAX = 200 * 1024 * 1024;
+const thumbCache = new Map<string, Uint8Array>();
+let thumbCacheBytes = 0;
+
+function cacheSet(key: string, data: Uint8Array) {
+  if (thumbCache.has(key)) return;
+  thumbCache.set(key, data);
+  thumbCacheBytes += data.byteLength;
+  while (thumbCacheBytes > THUMB_CACHE_MAX) {
+    const [k, v] = thumbCache.entries().next().value!;
+    thumbCache.delete(k);
+    thumbCacheBytes -= v.byteLength;
+  }
+}
+
+function cacheGet(key: string): Uint8Array | undefined {
+  const v = thumbCache.get(key);
+  if (!v) return undefined;
+  thumbCache.delete(key);
+  thumbCache.set(key, v);
+  return v;
+}
 
 interface Props {
   mhash: string;
@@ -38,6 +61,9 @@ export function Detail({ mhash }: Props) {
   const [manga, setManga] = useState<MangaDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [similar, setSimilar] = useState<MangaListItem[] | null>(null);
+  const [pageThumbs, setPageThumbs] = useState<Map<number, string>>(new Map());
+  const [totalPages, setTotalPages] = useState(0);
+  const stripRef = useRef<HTMLDivElement>(null);
   const [readerBack] = useState<string | null>(() => {
     const prev = previousPath.value;
     return /^\/g\/[^/]+\/\d+$/.test(prev) ? prev : null;
@@ -52,6 +78,40 @@ export function Detail({ mhash }: Props) {
     setSimilar(null);
     fetchManga(mhash).then(setManga).catch((e) => setError(e.message));
     fetchSimilar(mhash).then(setSimilar).catch(() => setSimilar([]));
+  }, [mhash]);
+
+  useEffect(() => {
+    const initial = new Map<number, string>();
+    let startPage = 1;
+    for (;;) {
+      const cached = cacheGet(`${mhash}:${startPage}`);
+      if (!cached) break;
+      initial.set(startPage, URL.createObjectURL(new Blob([cached], { type: "image/webp" })));
+      startPage++;
+    }
+    setPageThumbs(initial);
+    setTotalPages(startPage - 1); // known from cache; updated when stream header arrives
+
+    const ac = new AbortController();
+    const offset = startPage - 1;
+    const el = stripRef.current?.firstElementChild as HTMLElement | null;
+    const thumbW = el?.offsetWidth ?? 100;
+    const thumbH = el?.offsetHeight ?? Math.floor(thumbW * 4 / 3);
+
+    streamThumbs(mhash, offset, thumbW, thumbH, ac.signal, (total) => setTotalPages(total), (page, data) => {
+      cacheSet(`${mhash}:${page}`, data);
+      const url = URL.createObjectURL(new Blob([data], { type: "image/webp" }));
+      setPageThumbs((prev) => new Map(prev).set(page, url));
+    });
+
+    return () => {
+      ac.abort();
+      setTotalPages(0);
+      setPageThumbs((prev) => {
+        prev.forEach((url) => URL.revokeObjectURL(url));
+        return new Map();
+      });
+    };
   }, [mhash]);
 
   useEffect(() => {
@@ -115,6 +175,16 @@ export function Detail({ mhash }: Props) {
             </div>
           </>
         )}
+      </div>
+      <div ref={stripRef} class="page-strip">
+        {Array.from({ length: Math.max(totalPages, 1) }, (_, i) => i + 1).map((page) => {
+          const url = pageThumbs.get(page);
+          return (
+            <div key={page} class="page-thumb" onClick={() => navigate(`/g/${mhash}/${page}`)}>
+              {url && <img src={url} alt={`Page ${page}`} />}
+            </div>
+          );
+        })}
       </div>
       {similar && similar.length > 0 && (
         <div class="similar-section">

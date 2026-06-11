@@ -52,6 +52,7 @@ func runServer(cfg *Config, store *Store, rescanCh chan<- struct{}, stats *Stats
 	mux.HandleFunc("GET /api/search", s.handleAPISearch)
 	mux.HandleFunc("GET /api/random", s.handleAPIRandom)
 	mux.HandleFunc("POST /api/rescan", s.handleAPIRescan)
+	mux.HandleFunc("GET /api/thumbs", s.handleThumbStream)
 	mux.HandleFunc("GET /thumb/{mhash}", s.handleThumb)
 	mux.HandleFunc("GET /g/{mhash}/img/{n}", s.handleImage)
 	mux.HandleFunc("/", s.handleSPA)

@@ -151,6 +151,25 @@ func toRGBA(img image.Image) *image.RGBA {
 	return dst
 }
 
+func resizeCover(img image.Image, w, h int) image.Image {
+	b := img.Bounds()
+	srcW, srcH := b.Dx(), b.Dy()
+	// Crop the source to the target aspect ratio (center), then scale in one pass.
+	var sr image.Rectangle
+	if srcW*h > srcH*w { // source wider: crop sides
+		cropW := srcH * w / h
+		x0 := b.Min.X + (srcW-cropW)/2
+		sr = image.Rect(x0, b.Min.Y, x0+cropW, b.Max.Y)
+	} else { // source taller: crop top/bottom
+		cropH := srcW * h / w
+		y0 := b.Min.Y + (srcH-cropH)/2
+		sr = image.Rect(b.Min.X, y0, b.Max.X, y0+cropH)
+	}
+	dst := image.NewRGBA(image.Rect(0, 0, w, h))
+	xdraw.CatmullRom.Scale(dst, dst.Bounds(), img, sr, xdraw.Src, nil)
+	return dst
+}
+
 func resizeFit(img image.Image, maxW, maxH int) image.Image {
 	b := img.Bounds()
 	w, h := b.Dx(), b.Dy()
@@ -161,6 +180,6 @@ func resizeFit(img image.Image, maxW, maxH int) image.Image {
 	newW := int(math.Round(float64(w) * scale))
 	newH := int(math.Round(float64(h) * scale))
 	dst := image.NewRGBA(image.Rect(0, 0, newW, newH))
-	xdraw.BiLinear.Scale(dst, dst.Bounds(), img, b, xdraw.Src, nil)
+	xdraw.CatmullRom.Scale(dst, dst.Bounds(), img, b, xdraw.Src, nil)
 	return dst
 }

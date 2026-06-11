@@ -285,6 +285,40 @@ a {
 }
 
 
+/* ── Page thumbnail strip ── */
+
+.page-strip {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 20px 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.page-thumb {
+  position: relative;
+  cursor: pointer;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #222;
+  width: 160px;
+  aspect-ratio: 3 / 4;
+  flex-shrink: 0;
+}
+
+.page-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.page-thumb:hover img {
+  opacity: 0.8;
+}
+
 /* ── Similar section ── */
 
 .similar-section {
@@ -470,5 +504,14 @@ a {
 
   .detail-cover {
     width: 100%;
+  }
+
+  .page-strip {
+    padding: 16px 8px 24px;
+    gap: 6px;
+  }
+
+  .page-thumb {
+    width: calc((100% - 12px) / 3);
   }
 }
