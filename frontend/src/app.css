@@ -319,6 +319,15 @@ a {
   opacity: 0.8;
 }
 
+.app-version {
+  text-align: center;
+  color: #555;
+  font-size: 0.7rem;
+  font-family: monospace;
+  padding: 16px 0 24px;
+  user-select: text;
+}
+
 /* ── Similar section ── */
 
 .similar-section {

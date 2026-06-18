@@ -1,7 +1,7 @@
 import { useState, useEffect } from "preact/hooks";
 import { fetchSearch, ListResponse } from "../api";
-import { navigate, lastSearchQuery } from "./App";
-import { Header, CardGrid, Pagination, RescanRow } from "./Library";
+import { navigate, restoreScroll } from "./App";
+import { Header, CardGrid, Pagination, RescanRow, VersionFooter } from "./Library";
 
 interface Props {
   q: string;
@@ -14,12 +14,11 @@ export function Search({ q, page, sort }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    lastSearchQuery.value = q;
-  }, [q]);
-
-  useEffect(() => {
     setError(null);
-    fetchSearch(q, page, sort).then(setData).catch((e) => setError(e.message));
+    fetchSearch(q, page, sort).then((d) => {
+      setData(d);
+      restoreScroll();
+    }).catch((e) => setError(e.message));
   }, [q, page, sort]);
 
   function setPage(p: number) {
@@ -42,6 +41,7 @@ export function Search({ q, page, sort }: Props) {
           </>
         )}
       </div>
+      <VersionFooter />
     </>
   );
 }

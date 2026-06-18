@@ -1,7 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import { fetchManga, fetchSimilar, streamThumbs, MangaDetail, MangaListItem, Tag } from "../api";
-import { navigate, previousPath } from "./App";
-import { Header, CardGrid, goRandom } from "./Library";
+import { navigate, previousPath, restoreScroll } from "./App";
+import { Header, CardGrid, goRandom, VersionFooter } from "./Library";
 
 const THUMB_CACHE_MAX = 200 * 1024 * 1024;
 const thumbCache = new Map<string, Uint8Array>();
@@ -69,7 +69,7 @@ export function Detail({ mhash }: Props) {
     return /^\/g\/[^/]+\/\d+$/.test(prev) ? prev : null;
   });
   useLayoutEffect(() => {
-    window.scrollTo(0, 0);
+    if (!history.state?.scrollY) window.scrollTo(0, 0);
     const revoke = (prev: Map<number, string>) => {
       prev.forEach(URL.revokeObjectURL);
       return new Map<number, string>();
@@ -113,6 +113,10 @@ export function Detail({ mhash }: Props) {
 
     return () => ac.abort();
   }, [mhash]);
+
+  useEffect(() => {
+    restoreScroll();
+  }, [mhash, totalPages, similar]);
 
   useEffect(() => {
     if (!readerBack) return;
@@ -192,6 +196,7 @@ export function Detail({ mhash }: Props) {
           <CardGrid items={similar} />
         </div>
       )}
+      <VersionFooter />
     </>
   );
 }

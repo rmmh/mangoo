@@ -10,15 +10,38 @@ history.scrollRestoration = "manual";
 export const currentPath = signal(location.pathname + location.search);
 export const previousPath = signal("");
 
+function queryOf(path: string): string {
+  return new URLSearchParams(path.split("?")[1] ?? "").get("q") ?? "";
+}
+
+// Persist the leaving page's state onto its history entry so back/forward can restore it.
+function savePageState() {
+  history.replaceState(
+    { ...history.state, scrollY: window.scrollY, search: lastSearchQuery.value },
+    "",
+  );
+}
+
+// Restore the scroll position saved on the current history entry, after the page has rendered.
+export function restoreScroll() {
+  const y = history.state?.scrollY;
+  if (y) requestAnimationFrame(() => window.scrollTo(0, y));
+}
+
+lastSearchQuery.value = history.state?.search ?? queryOf(currentPath.value);
+
 export function navigate(path: string) {
-  history.replaceState({ scrollY: window.scrollY }, "");
+  savePageState();
   previousPath.value = currentPath.value;
-  history.pushState(null, "", path);
+  if (path.startsWith("/search")) lastSearchQuery.value = queryOf(path);
+  history.pushState({ search: lastSearchQuery.value }, "", path);
   currentPath.value = path;
 }
 
 window.addEventListener("popstate", () => {
-  currentPath.value = location.pathname + location.search;
+  const path = location.pathname + location.search;
+  lastSearchQuery.value = history.state?.search ?? queryOf(path);
+  currentPath.value = path;
 });
 
 export function App() {

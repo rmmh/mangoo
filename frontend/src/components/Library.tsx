@@ -1,6 +1,11 @@
 import { useState, useEffect } from "preact/hooks";
 import { fetchList, fetchRandom, fetchRescan, MangaListItem, ListResponse } from "../api";
-import { navigate, lastSearchQuery, currentPath } from "./App";
+import { navigate, lastSearchQuery, currentPath, restoreScroll } from "./App";
+import { VERSION } from "../version";
+
+export function VersionFooter() {
+  return <div class="app-version">{VERSION}</div>;
+}
 
 interface Props {
   page: number;
@@ -8,9 +13,7 @@ interface Props {
 }
 
 function SearchBar() {
-  const signalQ = lastSearchQuery.value;
-  const [input, setInput] = useState(signalQ);
-  useEffect(() => { setInput(signalQ); }, [signalQ]);
+  const input = lastSearchQuery.value;
 
   function submit(e: Event) {
     e.preventDefault();
@@ -27,7 +30,7 @@ function SearchBar() {
         type="text"
         placeholder="Search titles, tags, artists…"
         value={input}
-        onInput={(e) => setInput((e.target as HTMLInputElement).value)}
+        onInput={(e) => { lastSearchQuery.value = (e.target as HTMLInputElement).value; }}
       />
       <button class="btn" type="submit">Search</button>
     </form>
@@ -48,7 +51,7 @@ export function Header() {
 
   return (
     <div class="header">
-      <h1 onClick={() => { lastSearchQuery.value = ""; navigate("/"); }}>Mangoo</h1>
+      <h1 onClick={() => { navigate("/"); lastSearchQuery.value = ""; }}>Mangoo</h1>
       <SearchBar />
       <div class="header-actions">
         <button class="btn btn-blue" onClick={() => goRandom(lastSearchQuery.value)}>Random</button>
@@ -136,8 +139,7 @@ export function Library({ page, sort }: Props) {
     setError(null);
     fetchList(page, sort).then((d) => {
       setData(d);
-      const y = history.state?.scrollY;
-      if (y) requestAnimationFrame(() => window.scrollTo(0, y));
+      restoreScroll();
     }).catch((e) => setError(e.message));
   }, [page, sort]);
 
@@ -160,6 +162,7 @@ export function Library({ page, sort }: Props) {
           </>
         )}
       </div>
+      <VersionFooter />
     </>
   );
 }
