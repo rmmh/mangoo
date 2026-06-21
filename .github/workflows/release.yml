@@ -1,0 +1,77 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  LIBWEBP_VERSION: "1.5.0"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Cache static libwebp
+        id: webp-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/webp
+          key: libwebp-${{ env.LIBWEBP_VERSION }}-static-${{ runner.os }}
+
+      - name: Build static libwebp
+        if: steps.webp-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          curl -sfL "https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-${LIBWEBP_VERSION}.tar.gz" | tar xz
+          cd "libwebp-${LIBWEBP_VERSION}"
+          ./configure --prefix="$HOME/webp" --disable-shared --enable-static --disable-dependency-tracking
+          make -j"$(nproc)"
+          make install
+
+      - name: Build
+        run: |
+          set -euo pipefail
+          export CGO_CFLAGS="-I$HOME/webp/include"
+          export CGO_LDFLAGS="-L$HOME/webp/lib"
+          make build
+
+      - name: Verify libwebp is statically linked
+        run: |
+          set -euo pipefail
+          ldd ./mangoo || true
+          if ldd ./mangoo | grep -qi webp; then
+            echo "ERROR: mangoo dynamically links libwebp" >&2
+            exit 1
+          fi
+
+      - name: Package
+        run: |
+          set -euo pipefail
+          name="mangoo-${GITHUB_REF_NAME}-linux-amd64"
+          tar czf "${name}.tar.gz" mangoo README.md LICENSE mangoo.example.toml
+          sha256sum "${name}.tar.gz" > "${name}.tar.gz.sha256"
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            mangoo-*-linux-amd64.tar.gz
+            mangoo-*-linux-amd64.tar.gz.sha256

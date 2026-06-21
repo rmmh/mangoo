@@ -18,14 +18,27 @@ Dead-simple, self-hosted manga/comic reader. Point it at folders of archives and
 
 Go · TypeScript · Preact · esbuild · SQLite (modernc, pure Go) · libwebp.
 
-## Quick start
+## Install
+
+Grab a prebuilt Linux amd64 binary from the [latest release](https://github.com/rmmh/mangoo/releases/latest) (libwebp is statically linked, so no system libs needed):
+
+```sh
+curl -sfL https://github.com/rmmh/mangoo/releases/latest/download/mangoo-VERSION-linux-amd64.tar.gz | tar xz
+./mangoo
+```
+
+Replace `VERSION` with the release tag (e.g. `v0.1.0`), or download from the releases page.
+
+### Build from source
 
 ```sh
 make build      # builds frontend then the mangoo binary
 ./mangoo
 ```
 
-Requires `libwebp-dev` (`CGO_ENABLED=1`).
+Requires `libwebp-dev` and Node (for the frontend build); `CGO_ENABLED=1`.
+
+## Configuration
 
 Config search order: `--config` flag → `./mangoo.toml` → `~/.config/mangoo/config.toml`.
 
