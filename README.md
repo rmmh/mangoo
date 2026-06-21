@@ -39,6 +39,10 @@ For development, `air` watches `.go/.ts/.tsx/.css/.html` and rebuilds + restarts
 
 See [CLAUDE.md](CLAUDE.md) for architecture and internals.
 
+## License
+
+[PolyForm Noncommercial 1.0.0](LICENSE) — free to use, modify, and share for any noncommercial purpose. Commercial use requires a separate license; ask. This is source-available, not OSI open source.
+
 ---
 
 *Heads up: large parts of this codebase (and this README) are AI slop — generated with Claude. Read before you trust.*
