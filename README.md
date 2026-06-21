@@ -2,7 +2,7 @@
 
 Dead-simple, self-hosted manga/comic reader. Point it at folders of archives and browse them in your browser.
 
-> Why "Mangoo"? It's a manga reader in Go — but [Mango](https://github.com/getmango/Mango) (the Crystal one) already took the obvious name, and it's [deprecated/unmaintained as of March 2025](https://github.com/getmango/Mango). So: one more `o`.
+> Why "Mangoo"? It's a manga reader in Go — but [Mango](https://github.com/getmango/Mango) (the Crystal one) already took the obvious name, and it's deprecated/unmaintained as of March 2025. So: one more `o`.
 
 ## Features
 
