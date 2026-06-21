@@ -1,6 +1,7 @@
 ESBUILD := ./frontend/node_modules/.bin/esbuild
 
-VERSION := v$(shell git rev-list --count HEAD)-$(shell git rev-parse --short HEAD)$(shell test -n "$$(git status --porcelain -uno)" && echo -dirty)
+TAG := $(shell git describe --tags --abbrev=0 2>/dev/null || echo v0.0.0)
+VERSION := $(TAG)-r$(shell git rev-list --count HEAD)-$(shell git rev-parse --short HEAD)$(shell test -n "$$(git status --porcelain -uno)" && echo -dirty)
 
 ESBUILD_FLAGS := --bundle --jsx=automatic --jsx-import-source=preact \
                  --loader:.tsx=tsx --loader:.ts=ts --target=es2020 \
